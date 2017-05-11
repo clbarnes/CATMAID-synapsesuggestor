@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from types import StringTypes
 import logging
 from string import Formatter

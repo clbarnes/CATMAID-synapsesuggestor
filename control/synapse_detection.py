@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Methods used by the synapse detection code
 """
