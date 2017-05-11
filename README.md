@@ -1,7 +1,7 @@
 # CATMAID-synapsesuggestor
 
 synapsesuggestor is a django application which acts as a drop-in
-extension for CATMAID.
+extension for [CATMAID](www.catmaid.org).
 
 ## Quick start
 
@@ -19,7 +19,9 @@ INSTALLED_APPS = [
 
 3. Include the synapsesuggestor URLconf in your project urls.py like this:
 
-    url(r'^synapsesuggestor/', include('synapsesuggestor.urls')),
+```python
+url(r'^synapsesuggestor/', include('synapsesuggestor.urls')),
+```
 
 4. Run `python manage.py migrate` to create the synapsesuggestor models.
 
