@@ -26,7 +26,7 @@ def get_undetected_tiles(request, project_id=None):
 
     POST parameters:
     algo_version: integer version number of synapse detection algorithm
-    stack_mirror: integer ID of stack mirror on which tiling is based
+    stack_id: integer ID of stack on which tiling is based
     tile_idxs[]: jQuery or CATMAID-formatted list of strings which are JSON-formatted arrays of the [x, y, 
     z] indices of the tile
 
@@ -43,25 +43,28 @@ def get_undetected_tiles(request, project_id=None):
 
     # todo: replace with something which calculates tiles itself and just needs the skeleton
 
-    algo_version = int(request.POST.get('algo_version', 0))
-    stack_mirror = int(request.POST.get('stack_mirror', 0))
+    algo_hash = int(request.POST.get('algo_hash', 0))
+    stack_id = int(request.POST.get('stack_mirror', 0))
 
     tile_idxs = set(get_request_list(request.POST, 'tile_idxs', tuple(), lambda x: tuple(json.loads(x))))
 
-    # x, y, z, stack_mirror, algo_version
-    temp_rows = (t_idx + (stack_mirror, algo_version) for t_idx in tile_idxs)
+    # x, y, z, project_id, stack_id, algo_id
+    temp_rows = (t_idx + (project_id, stack_id, algo_hash) for t_idx in tile_idxs)
 
     cursor = connection.cursor()
 
-    query, args = list_into_query('''
-        SELECT tsda.x_tile_idx, tsda.y_tile_idx, tsda.z_tile_idx FROM tile_synapse_detection_algorithm tsda
-          INNER JOIN ( VALUES {temp_rows} ) tmp (x, y, z, mirror, algo)
-            ON  tsda.x_tile_idx = tmp.x
-            AND tsda.y_tile_idx = tmp.y
-            AND tsda.z_tile_idx = tmp.z
-            AND tsda.stack_mirror_id = tmp.mirror
-            AND tsda.synapse_detection_algorithm_id = tmp.algo;
-    ''', temp_rows, fmt='(%s, %s, %s, %s, %s)')
+    query, args = list_into_query_multi('''
+        SELECT sst.x_tile_idx, sst.y_tile_idx, sst.z_tile_idx FROM synapse_suggestion_tile sst
+          INNER JOIN synapse_suggestion_algorithm ssa
+            ON sst.synapse_suggestion_algorithm_id = ssa.id
+          INNER JOIN ( VALUES {temp_rows} ) tmp (x, y, z, project, stack, algo)
+            ON  sst.x_tile_idx = tmp.x
+            AND sst.y_tile_idx = tmp.y
+            AND sst.z_tile_idx = tmp.z
+            AND sst.project_id = tmp.project
+            AND sst.stack_id = tmp.stack
+            AND ssa.hashcode = tmp.algo;
+    ''', fmt={'temp_rows': '(%s, %s, %s, %s, %s, %s)'}, temp_rows=temp_rows, project_id=project_id)
 
     cursor.execute(query, args)
 
@@ -94,18 +97,18 @@ def get_unassociated_nodes(request, project_id=None):
 
     # todo: check if nodes have a detected synapse slice near them?
 
-    algo_version = int(request.GET.get('algo_version', 0))
+    algo_hash = request.GET.get('algo_hash', '')
     skel_id = int(request.GET.get('skid', 0))
 
     cursor = connection.cursor()
 
     cursor.execute('''
         SELECT DISTINCT tn.id FROM treenode tn 
-          JOIN synapse_slice_treenode sst
-            ON sst.treenode_id = tn.id
+          INNER JOIN synapse_slice_treenode ssn
+            ON ssn.treenode_id = tn.id
           WHERE tn.skeleton_id = %s
-            AND sst.skeleton_association_algorithm_id != %s;
-    ''', (skel_id, algo_version))
+            AND ssn.skeleton_association_algorithm_id != %s;
+    ''', (skel_id, project_id, algo_version))
 
     node_ids = [row[0] for row in cursor.fetchall()]
 
@@ -150,16 +153,18 @@ def delete_synapse_slices_from_tile(request, project_id=None):
           AND tsda.y_tile_idx = %s 
           AND tsda.z_tile_idx = %s
           AND tsda.stack_mirror_id = %s
-          AND tsda.synapse_detection_algorithm_id = %s;
-    ''', tile_idx_xyz + (stack_mirror, algo_version))  # todo: am I using this right?
+          AND tsda.synapse_detection_algorithm_id = %s
+          AND ss.project_id = %s;
+    ''', tile_idx_xyz + (stack_mirror, algo_version, project_id))
 
 
-def _get_or_create_tile_synapse_detection_algorithm(tile_idx_xyz, stack_mirror, algo_version):
+def _get_or_create_tile_synapse_detection_algorithm(project_id, tile_idx_xyz, stack_mirror, algo_version):
     """
     Gets the ID of the requested TileSynapseDetectionAlgorithm object, creating it if it doesn't exist.
     
     Parameters
     ----------
+    project_id : int
     tile_idx_xyz : tuple of int
         (x, y, z) index of tile
     stack_mirror : int
@@ -175,7 +180,7 @@ def _get_or_create_tile_synapse_detection_algorithm(tile_idx_xyz, stack_mirror, 
     cursor = connection.cursor()
     cursor.execute('''
             INSERT INTO tile_synapse_detection_algorithm AS tsda (
-              x_tile_idx, y_tile_idx, z_tile_idx, stack_mirror, synapse_detection_algorithm_id
+              x_tile_idx, y_tile_idx, z_tile_idx, stack_mirror, synapse_detection_algorithm_id, project_id
             )
             SELECT %s, %s, %s, %s, %s
               WHERE NOT EXISTS (
@@ -184,11 +189,12 @@ def _get_or_create_tile_synapse_detection_algorithm(tile_idx_xyz, stack_mirror, 
                     AND tsda.synapse_detection_algorithm_id = %s
                     AND tsda.x_tile_idx = %s
                     AND tsda.y_tile_idx = %s
-                    AND tsda.z_tile_idx = %s;
+                    AND tsda.z_tile_idx = %s
+                    AND tsda.project_id = %s;
               )
             LIMIT 1
             RETURNING id;
-        ''', (tile_idx_xyz + (stack_mirror, algo_version)) * 2)  # todo: check this
+        ''', (tile_idx_xyz + (stack_mirror, algo_version, project_id)) * 2)  # todo: check this
     return cursor.fetchone()[0]
 
 
@@ -234,21 +240,26 @@ def add_synapse_slices_from_tile(request, project_id=None):
     algo_version = int(request.POST['algo_version'])
 
     tsda_id = _get_or_create_tile_synapse_detection_algorithm(
-        tile_idx_xyz, stack_mirror, algo_version
+        project_id, tile_idx_xyz, stack_mirror, algo_version
     )
 
     syn_slice_rows = [
-        (tsda_id, d['wkt_str'], d['size_px'], d['xs_centroid'], d['ys_centroid'])
+        (project_id, tsda_id, d['wkt_str'], d['size_px'], d['xs_centroid'], d['ys_centroid'])
         for d in synapse_slices
     ]
 
-    query, args = list_into_query_multi('''
-        INSERT INTO synapse_slices (
-          tile_synapse_detection_algorithm_id, convex_hull_2d, size_px, xs_centroid, ys_centroid
-        ) 
-        VALUES {syn_slice_rows}
-        RETURNING id;
-    ''', fmt={'syn_slice_rows': '(%s, ST_ConvexHull(ST_GeomFromText(%s)), %s, %s, %s)'}, syn_slice_rows=syn_slice_rows)
+    query, args = list_into_query_multi(
+        '''
+            INSERT INTO synapse_slices (
+              {project_id}, tile_synapse_detection_algorithm_id, convex_hull_2d, size_px, xs_centroid, ys_centroid
+            ) 
+            VALUES {syn_slice_rows}
+            RETURNING id;
+        ''',
+        fmt={'syn_slice_rows': '(%s, %s, ST_ConvexHull(ST_GeomFromText(%s)), %s, %s, %s)'},
+        syn_slice_rows=syn_slice_rows,
+        project_id=project_id
+    )
 
     cursor = connection.cursor()
     cursor.execute(query, args)
@@ -257,7 +268,7 @@ def add_synapse_slices_from_tile(request, project_id=None):
     return JsonResponse(id_mapping)
 
 
-def _get_synapse_slice_adjacencies(synapse_slice_ids):
+def _get_synapse_slice_adjacencies(project_id, synapse_slice_ids):
     """
     Get adjacencies between given synapse slices and all other synapse slices in the database.
     
@@ -275,9 +286,9 @@ def _get_synapse_slice_adjacencies(synapse_slice_ids):
     graph.add_nodes_from(synapse_slice_ids)
     # get rows of synapse slices of interest; join to their tiles; join to z-adjacent tiles; join to synapse slices
     # in those tiles which are also xy-adjacent and do not have the same ID
-    query, args = list_into_query('''
+    query, args = list_into_query_multi('''
         SELECT this_slice.id, that_slice.id FROM synapse_slice this_slice
-          INNER JOIN (VALUES {}) these_ids (id)
+          INNER JOIN (VALUES {synapse_slice_ids}) these_ids (id)
             ON these_ids.id = this_slice.id
           INNER JOIN tile_synapse_detection_algorithm this_tile
             ON this_tile.id = this_slice.tile_synapse_detection_algorithm_id
@@ -286,15 +297,17 @@ def _get_synapse_slice_adjacencies(synapse_slice_ids):
           INNER JOIN synapse_slice that_slice
             ON that_tile.id = that_slice.tile_synapse_detection_algorithm_id
             AND ST_DWithin(this_slice.convex_hull_2d, that_slice.convex_hull_2d, 1.1)
-            AND this_slice.id != that_slice.id;
-    ''', synapse_slice_ids, fmt='(%s)')
+            AND this_slice.id != that_slice.id
+            AND this_slice.project_id = that_slice.project_id
+          WHERE this_slice.project_id = {project_id};
+    ''', fmt={'synapse_slice_ids': '(%s)'}, synapse_slice_ids=synapse_slice_ids, project_id=project_id)
     cursor.execute(query, args)
     results = cursor.fetchall()
     graph.add_edges_from(results)
     return graph
 
 
-def _agglomerate_synapse_slices(synapse_slice_ids):
+def _agglomerate_synapse_slices(project_id, synapse_slice_ids):
     """
     - Find adjacencies between given synapse slices and all other synapse slices
     - If a new synapse slice should belong to an existing synapse object, add it
@@ -311,14 +324,17 @@ def _agglomerate_synapse_slices(synapse_slice_ids):
 
     """
     # todo: constrain to synapse slices gleaned from the same stack mirror?
-    adjacencies = _get_synapse_slice_adjacencies(synapse_slice_ids)
+    adjacencies = _get_synapse_slice_adjacencies(project_id, synapse_slice_ids)
 
     cursor = connection.cursor()
-    query, cursor_args = list_into_query('''
+    query, cursor_args = list_into_query_multi('''
         SELECT sl_obj.synapse_slice_id, sl_obj.synapse_object_id FROM synapse_slice_synapse_object sl_obj
-          INNER JOIN (VALUES {}) syn_sl (id) 
-            ON (syn_sl.id = sl_obj.synapse_slice_id);
-    ''', adjacencies.nodes(), fmt='(%s)')
+          INNER JOIN synapse_slice ss
+            ON ss.id = sl_obj.synapse_slice_id
+          INNER JOIN (VALUES {nodes}) syn_sl (id) 
+            ON (syn_sl.id = sl_obj.synapse_slice_id)
+          WHERE ss.project_id = {project_id};
+    ''', fmt={'nodes': '(%s)'}, nodes=adjacencies.nodes(), project_id=project_id)
     cursor.execute(query, cursor_args)
     existing_syn_slice_to_obj = dict(cursor.fetchall())
 
@@ -347,12 +363,12 @@ def _agglomerate_synapse_slices(synapse_slice_ids):
         cursor.execute(query, cursor_args)
 
     logger.info('Creating new synapse objects')
-    query = '''
-        INSERT INTO synapse_object (id)
+    query, args = list_into_query('''
+        INSERT INTO synapse_object (project_id)
           VALUES {}
           RETURNING id;
-    '''.format(', '.join('(DEFAULT)' for _ in unmapped_syn_slices))
-    cursor.execute(query)
+    ''', [project_id for _ in unmapped_syn_slices], fmt='(%s)')
+    cursor.execute(query, args)
 
     for syn_slice_group, new_syn_obj in zip(unmapped_syn_slices, cursor.fetchall()):
         new_mappings.extend((syn_slice, new_syn_obj) for syn_slice in syn_slice_group)
@@ -386,4 +402,4 @@ def agglomerate_synapse_slices(request, project_id=None):
 
     """
     synapse_slice_ids = get_request_list(request.POST, 'synapse_slices', tuple, int)
-    _agglomerate_synapse_slices(synapse_slice_ids)
+    _agglomerate_synapse_slices(project_id, synapse_slice_ids)
