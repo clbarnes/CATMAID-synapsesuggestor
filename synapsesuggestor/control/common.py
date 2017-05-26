@@ -6,6 +6,8 @@ from string import Formatter
 from django.db import connection
 from django.http import JsonResponse
 
+from synapsesuggestor.models import ProjectSynapseSuggestionWorkflow
+
 
 logger = logging.getLogger(__name__)
 
@@ -101,29 +103,34 @@ def list_into_query_multi(query, fmt=None, **kwargs):
     return final_query, tuple(final_args)
 
 
-def get_or_create_algo_version(request, project_id=None):
-    """
-    
-    Parameters
-    ----------
-    request
-    project_id
+# def get_or_create_algo_version(request, project_id=None):
+#     """
+#
+#     Parameters
+#     ----------
+#     request
+#     project_id
+#
+#     Returns
+#     -------
+#
+#     """
+#     hashcode = request.POST['hashcode']
+#     notes = request.POST.get('notes', '')
+#
+#     cursor = connection.cursor()
+#
+#     cursor.execute('''
+#         INSERT INTO synapse_suggestion_algorithm AS ssa (hashcode, notes)
+#           VALUES (%s, %s) AS new (hashcode, notes)
+#           ON CONFLICT (ssa.hashcode) DO NOTHING
+#           RETURNING (ssa.id, ssa.hashcode, ssa.date, ssa.notes);
+#     ''', (hashcode, notes))
+#     data = dict()
+#     data['id'], data['hashcode'], data['date'], data['notes'] = cursor.fetchone()
+#     return JsonResponse(data)
 
-    Returns
-    -------
 
-    """
-    hashcode = request.POST['hashcode']
-    notes = request.POST.get('notes', '')
-
-    cursor = connection.cursor()
-
-    cursor.execute('''
-        INSERT INTO synapse_suggestion_algorithm AS ssa (hashcode, notes)
-          VALUES (%s, %s) AS new (hashcode, notes)
-          ON CONFLICT (ssa.hashcode) DO NOTHING
-          RETURNING (ssa.id, ssa.hashcode, ssa.date, ssa.notes);
-    ''', (hashcode, notes))
-    data = dict()
-    data['id'], data['hashcode'], data['date'], data['notes'] = cursor.fetchone()
-    return JsonResponse(data)
+def get_most_recent_project_SS_workflow(project_id):
+    """Given a project ID, return the ProjectSynapseSuggestionWorkflow row most recently created in that project"""
+    return ProjectSynapseSuggestionWorkflow.objects.filter(project_id=project_id).order_by('-created').first()
