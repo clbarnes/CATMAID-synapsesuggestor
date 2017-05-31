@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 def add_treenode_synapse_associations(request, project_id=None):
     """
     POST request which adds a set of treenode-synapse associations to the database.
-    
+
     Parameters
     ----------
     request
@@ -53,11 +53,11 @@ def add_treenode_synapse_associations(request, project_id=None):
 
 def get_treenode_associations(request, project_id=None):
     """
-    GET request which takes a skeleton ID and returns its treenode associations with synapses under the synapse 
+    GET request which takes a skeleton ID and returns its treenode associations with synapses under the synapse
     suggestion workflow most recently associated with this project.
-    
+
     skid
-    
+
     Parameters
     ----------
     request
@@ -67,7 +67,7 @@ def get_treenode_associations(request, project_id=None):
     -------
 
     """
-    skel_id = int(request.GET['skid', 0])
+    skel_id = int(request.GET['skid'])
 
     newest_pssw_id = get_most_recent_project_SS_workflow(project_id).id
 
