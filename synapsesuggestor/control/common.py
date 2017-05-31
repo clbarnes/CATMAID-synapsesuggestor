@@ -3,9 +3,6 @@ from types import StringTypes
 import logging
 from string import Formatter
 
-from django.db import connection
-from django.http import JsonResponse
-
 from synapsesuggestor.models import ProjectSynapseSuggestionWorkflow
 
 
