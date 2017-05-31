@@ -1,0 +1,127 @@
+[
+{
+  "model": "synapsesuggestor.synapsedetectiontiling",
+  "pk": 1,
+  "fields": {
+    "stack": 3,
+    "tile_height_px": 512,
+    "tile_width_px": 512
+  }
+},
+{
+  "model": "synapsesuggestor.synapsedetectionalgorithm",
+  "pk": 1,
+  "fields": {
+    "hashcode": "0",
+    "date": "2017-05-31T19:57:35.142Z",
+    "notes": "test synapse detection algorithm"
+  }
+},
+{
+  "model": "synapsesuggestor.synapsedetectionalgorithm",
+  "pk": 2,
+  "fields": {
+    "hashcode": "1",
+    "date": "2017-05-31T19:59:54.482Z",
+    "notes": "another test synapse detection algorithm"
+  }
+},
+{
+  "model": "synapsesuggestor.synapseimagestore",
+  "pk": 1,
+  "fields": {}
+},
+{
+  "model": "synapsesuggestor.synapsesuggestionworkflow",
+  "pk": 1,
+  "fields": {
+    "synapse_detection_tiling": 1,
+    "synapse_detection_algorithm": 1,
+    "synapse_image_store": 1
+  }
+},
+{
+  "model": "synapsesuggestor.synapsedetectiontile",
+  "pk": 1,
+  "fields": {
+    "synapse_suggestion_workflow": 1,
+    "x_tile_idx": 0,
+    "y_tile_idx": 0,
+    "z_tile_idx": 0
+  }
+},
+{
+  "model": "synapsesuggestor.synapseslice",
+  "pk": 1,
+  "fields": {
+    "synapse_detection_tile": 1,
+    "convex_hull_2d": "POLYGON ((0.0 0.0, 1.0 0.0, 1.0 1.0, 0.0 1.0, 0.0 0.0))",
+    "size_px": 50,
+    "xs_centroid": 0,
+    "ys_centroid": 0,
+    "uncertainty": 0.5
+  }
+},
+{
+  "model": "synapsesuggestor.synapseslice",
+  "pk": 2,
+  "fields": {
+    "synapse_detection_tile": 1,
+    "convex_hull_2d": "POLYGON ((1.0 0.0, 2.0 0.0, 2.0 1.0, 1.0 1.0, 1.0 0.0))",
+    "size_px": 100,
+    "xs_centroid": 1,
+    "ys_centroid": 1,
+    "uncertainty": 0.5
+  }
+},
+{
+  "model": "synapsesuggestor.synapseobject",
+  "pk": 1,
+  "fields": {}
+},
+{
+  "model": "synapsesuggestor.synapseslicesynapseobject",
+  "pk": 1,
+  "fields": {
+    "synapse_slice": 1,
+    "synapse_object": 1
+  }
+},
+{
+  "model": "synapsesuggestor.synapseslicesynapseobject",
+  "pk": 2,
+  "fields": {
+    "synapse_slice": 2,
+    "synapse_object": 1
+  }
+},
+{
+  "model": "synapsesuggestor.synapseassociationalgorithm",
+  "pk": 1,
+  "fields": {
+    "hashcode": "0",
+    "date": "2017-05-31T20:04:31.089Z",
+    "notes": ""
+  }
+},
+{
+  "model": "synapsesuggestor.projectsynapsesuggestionworkflow",
+  "pk": 1,
+  "fields": {
+    "project": 2,
+    "synapse_suggestion_workflow": 1,
+    "synapse_association_algorithm": 1,
+    "created": "2017-05-31T20:04:48.623Z"
+  }
+},
+{
+  "model": "synapsesuggestor.synapseslicetreenode",
+  "pk": 1,
+  "fields": {
+    "synapse_slice": 1,
+    "treenode": 7,
+    "synapse_association_algorithm": 1,
+    "contact_px": 5
+  }
+}
+]
