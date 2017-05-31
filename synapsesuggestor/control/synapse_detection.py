@@ -13,7 +13,7 @@ from rest_framework.decorators import api_view
 
 from catmaid.control.authentication import requires_user_role
 from catmaid.control.common import get_request_list
-from synapsesuggestor.control.common import list_into_query, list_into_query_multi, get_most_recent_project_SS_workflow
+from synapsesuggestor.control.common import list_into_query
 
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 def get_detected_tiles(request, project_id=None):
     """
-    GET request which returns the set of tile indices which have been addressed by the given synapse suggestion 
+    GET request which returns the set of tile indices which have been addressed by the given synapse suggestion
     workflow.
 
     GET parameters:
@@ -71,11 +71,11 @@ def _get_or_create_tile_id(workflow_id, x_idx, y_idx, z_idx):
 def add_synapse_slices_from_tile(request, project_id=None):
     """
     POST request which adds synapse slices from one tile to the database and returns the mapping from their naive IDs to
-     database IDs. This must be done one tile at a time because inserting the tile images into the volume store 
+     database IDs. This must be done one tile at a time because inserting the tile images into the volume store
      requires the database IDs.
-     
+
     This function does not agglomerate 2D synapse slices into 3D synapse objects.
-    
+
     POST parameters:
     x_idx: integer x index of tile
     y_idx: integer y index of tile
@@ -89,7 +89,7 @@ def add_synapse_slices_from_tile(request, project_id=None):
             "ys_centroid": integer centroid in y dimension, stack coordinates
             "uncertainty"
         }
-    
+
     Parameters
     ----------
     request
@@ -134,13 +134,13 @@ def add_synapse_slices_from_tile(request, project_id=None):
 
 def _get_synapse_slice_adjacencies(synapse_slice_ids):
     """
-    Get adjacencies between given synapse slices and all other synapse slices which refer to synapse detection tiles 
+    Get adjacencies between given synapse slices and all other synapse slices which refer to synapse detection tiles
     which refer to the same synapse suggestion workflow.
-    
+
     Parameters
     ----------
     synapse_slice_ids : list
-    
+
     Returns
     -------
     networkx.Graph
@@ -179,10 +179,10 @@ def _agglomerate_synapse_slices(synapse_slice_ids):
     """
     - Find adjacencies between given synapse slices and all other synapse slices
     - If a new synapse slice should belong to an existing synapse object, add it
-    - If a new synapse slice bridges the gap between existing synapse objects, remap all slices belonging to the 
+    - If a new synapse slice bridges the gap between existing synapse objects, remap all slices belonging to the
     obsolete object
     - If a new synapse slice does not belong to an existing synapse object, create it
-    
+
     Parameters
     ----------
     synapse_slice_ids
@@ -268,12 +268,12 @@ def _agglomerate_synapse_slices(synapse_slice_ids):
 
 def agglomerate_synapse_slices(request, project_id=None):
     """
-    POST request which agglomerates given synapse slices into synapse objects (including agglomerating with existing 
+    POST request which agglomerates given synapse slices into synapse objects (including agglomerating with existing
     unspecified slices).
-    
+
     POST parameters:
     synapse_slices[]: list of synapse slice IDs
-    
+
     Parameters
     ----------
     request
@@ -282,7 +282,7 @@ def agglomerate_synapse_slices(request, project_id=None):
     Returns
     -------
     dict
-        New mappings from synapse slice ID to synapse object ID. 
+        New mappings from synapse slice ID to synapse object ID.
     """
     synapse_slice_ids = get_request_list(request.POST, 'synapse_slices', tuple, int)
     new_mappings = _agglomerate_synapse_slices(synapse_slice_ids)
