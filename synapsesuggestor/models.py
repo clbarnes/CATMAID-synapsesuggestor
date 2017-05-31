@@ -3,16 +3,21 @@ from __future__ import unicode_literals
 
 from django.db import models
 from django.contrib.gis.db import models as spatial_models
+from django.utils.encoding import python_2_unicode_compatible
 
 from catmaid.models import Treenode, Stack, StackMirror, Project
 
 
+@python_2_unicode_compatible
 class SynapseDetectionTiling(models.Model):
     """Information about how to tile the raw image stack"""
     stack = models.ForeignKey(Stack, on_delete=models.CASCADE)
 
     tile_height_px = models.IntegerField(default=512)
     tile_width_px = models.IntegerField(default=512)
+
+    def __str__(self):
+        return '{} ({}x{})'.format(self.stack.title, self.tile_width_px, self.tile_height_px)
 
     class Meta:
         db_table = 'synapse_detection_tiling'
@@ -25,12 +30,16 @@ class Algorithm(models.Model):
     date = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True)
 
+    def __str__(self):
+        return 'Hash: {} ({})'.format(self.hashcode, self.date)
+
     class Meta:
         abstract = True
 
 
 class SynapseDetectionAlgorithm(Algorithm):
     """Algorithm used for classifying pixels and pulling out synapse slices from them"""
+
     class Meta:
         db_table = 'synapse_detection_algorithm'
 
@@ -48,6 +57,9 @@ class SynapseSuggestionWorkflow(models.Model):
     # null when obsolete
     synapse_image_store = models.OneToOneField(SynapseImageStore, null=True, default=None, unique=True)
 
+    def __str__(self):
+        return '{}{}'.format(self.id, '' if self.synapse_image_store else ' (read-only)')
+
     class Meta:
         db_table = 'synapse_suggestion_workflow'
         unique_together = ('synapse_detection_tiling', 'synapse_detection_algorithm')
@@ -61,6 +73,11 @@ class SynapseDetectionTile(models.Model):
     x_tile_idx = models.IntegerField(db_index=True)
     y_tile_idx = models.IntegerField(db_index=True)
     z_tile_idx = models.IntegerField(db_index=True)
+
+    def __str__(self):
+        return 'x{}y{}z{} in {}'.format(
+            self.x_tile_idx, self.y_tile_idx, self.z_tile_idx, self.synapse_suggestion_workflow
+        )
 
     class Meta:
         db_table = 'synapse_detection_tile'
@@ -81,12 +98,18 @@ class SynapseSlice(models.Model):
     # date?
     # user?
 
+    def __str__(self):
+        return str(self.id)
+
     class Meta:
         db_table = 'synapse_slice'
 
 
 class SynapseObject(models.Model):
     """3D synapse object"""
+
+    def __str__(self):
+        return str(self.id)
 
     class Meta:
         db_table = 'synapse_object'
@@ -97,6 +120,9 @@ class SynapseSliceSynapseObject(models.Model):
     synapse_slice = models.OneToOneField(SynapseSlice, unique=True, on_delete=models.CASCADE)
     synapse_object = models.ForeignKey(SynapseObject, on_delete=models.CASCADE)
 
+    def __str__(self):
+        return '{} -- {}'.format(self.synapse_slice.id, self.synapse_object.id)
+
     class Meta:
         db_table = 'synapse_slice_synapse_object'
 
@@ -104,8 +130,8 @@ class SynapseSliceSynapseObject(models.Model):
 class SynapseAssociationAlgorithm(Algorithm):
     """
     Algorithm for associating synapse slices with treenodes.
-    
-    In v1, this must be bumped every time the synapse detection algorithm is bumped as it depends on the pixel 
+
+    In v1, this must be bumped every time the synapse detection algorithm is bumped as it depends on the pixel
     predictions.
     """
 
@@ -119,6 +145,10 @@ class ProjectSynapseSuggestionWorkflow(models.Model):
     synapse_association_algorithm = models.ForeignKey(SynapseAssociationAlgorithm, on_delete=models.CASCADE)
     created = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return '{} -- {} (algo {})'.format(self.project.id, self.synapse_suggestion_workflow.id,
+                                           self.synapse_association_algorithm.id)
+
     class Meta:
         db_table = 'project_synapse_suggestion_workflow'
 
@@ -126,12 +156,15 @@ class ProjectSynapseSuggestionWorkflow(models.Model):
 class SynapseSliceTreenode(models.Model):
     """Mapping from 2D partial synapse cross-sections to treenodes"""
     synapse_slice = models.ForeignKey(SynapseSlice, on_delete=models.CASCADE, null=True)
-    treenode = models.ForeignKey(Treenode, on_delete=models.CASCADE)
+    treenode = models.ForeignKey(Treenode, null=True, on_delete=models.CASCADE)
 
     synapse_association_algorithm = models.ForeignKey(SynapseAssociationAlgorithm, on_delete=models.CASCADE)
     contact_px = models.IntegerField(verbose_name='Size in pixels of 1D contact area between neuron and synapse')
 
     # contact geometry?
+
+    def __str__(self):
+        return '{} -- {}'.format(self.synapse_slice.id, self.treenode.id)
 
     class Meta:
         db_table = 'synapse_slice_treenode'
