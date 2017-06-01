@@ -11,7 +11,7 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 setup(
     name='CATMAID-synapsesuggestor',
     version='0.0.1',
-    packages=find_packages(),
+    packages=find_packages(exclude='travis'),
     include_package_data=True,
     license='MIT License',
     description='A django app which acts as a drop-in extension for CATMAID, allowing users to incorporate automatic'
