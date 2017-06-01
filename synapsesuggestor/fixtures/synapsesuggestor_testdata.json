@@ -90,6 +90,11 @@
   "fields": {}
 },
 {
+  "model": "synapsesuggestor.synapseobject",
+  "pk": 2,
+  "fields": {}
+},
+{
   "model": "synapsesuggestor.synapseslicesynapseobject",
   "pk": 1,
   "fields": {
@@ -128,7 +133,7 @@
   "model": "synapsesuggestor.synapseslicetreenode",
   "pk": 1,
   "fields": {
-    "synapse_slice": 1,
+    "synapse_slice": 2,
     "treenode": 7,
     "synapse_association_algorithm": 1,
     "contact_px": 5
