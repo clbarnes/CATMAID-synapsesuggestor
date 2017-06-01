@@ -14,6 +14,7 @@ from rest_framework.decorators import api_view
 from catmaid.control.authentication import requires_user_role
 from catmaid.control.common import get_request_list
 from synapsesuggestor.control.common import list_into_query
+from synapsesuggestor.models import SynapseDetectionTile
 
 
 logger = logging.getLogger(__name__)
@@ -43,29 +44,14 @@ def get_detected_tiles(request, project_id=None):
     cursor = connection.cursor()
 
     cursor.execute('''
-        SELECT sst.x_tile_idx, sst.y_tile_idx, sst.z_tile_idx
-          FROM synapse_suggestion_tile sst
+        SELECT sdt.x_tile_idx, sdt.y_tile_idx, sdt.z_tile_idx
+          FROM synapse_detection_tile sdt
           INNER JOIN synapse_suggestion_workflow ssw
-            ON sst.synapse_suggestion_workflow_id = ssw.id
+            ON sdt.synapse_suggestion_workflow_id = ssw.id
           WHERE ssw.id = %s;
-    ''', (ssw_id, ))
+    ''', (ssw_id,))
 
     return JsonResponse(cursor.fetchall(), safe=False)
-
-
-def _get_or_create_tile_id(workflow_id, x_idx, y_idx, z_idx):
-    cursor = connection.cursor()
-    cursor.execute('''
-        INSERT INTO synapse_detection_tile sdt (synapse_suggestion_workflow_id, x_tile_idx, y_tile_idx, z_tile_idx)
-          VALUES (%s, %s, %s, %s)
-          ON CONFLICT UPDATE
-            SET sdt.x_tile_idx = sdt.x_tile_idx
-          RETURNING sdt.id
-    ''', (workflow_id, x_idx, y_idx, z_idx))
-
-    # todo: i don't think this works
-
-    return cursor.fetchone()[0]
 
 
 def add_synapse_slices_from_tile(request, project_id=None):
@@ -86,7 +72,8 @@ def add_synapse_slices_from_tile(request, project_id=None):
             "id": naive ID of synapse slice
             "wkt_str": Multipoint WKT string describing synapse's geometry (will be convex hulled)
             "xs_centroid": integer centroid in x dimension, stack coordinates
-            "ys_centroid": integer centroid in y dimension, stack coordinates
+            "ys_centroid": integer centroid in y dimension, stack coordinates,
+            "size_px"
             "uncertainty"
         }
 
@@ -100,29 +87,37 @@ def add_synapse_slices_from_tile(request, project_id=None):
     dict
         Mapping from naive IDs to database IDs
     """
-    ssw_id = request.GET['workflow_id']
+    ssw_id = request.POST['workflow_id']
     synapse_slices = get_request_list(request.POST, 'synapse_slices', tuple(), json.loads)
     tile_x_idx = int(request.POST['x_idx'])
     tile_y_idx = int(request.POST['y_idx'])
     tile_z_idx = int(request.POST['z_idx'])
 
-    tile_id = _get_or_create_tile_id(ssw_id, tile_x_idx, tile_y_idx, tile_z_idx)
+    tile, created = SynapseDetectionTile.objects.get_or_create(
+        synapse_suggestion_workflow_id=ssw_id,
+        x_tile_idx=tile_x_idx,
+        y_tile_idx=tile_y_idx,
+        z_tile_idx=tile_z_idx
+    )
+    tile_id = tile.id
 
     syn_slice_rows = [
-        (tile_id, d['wkt_str'], d['size_px'], d['xs_centroid'], d['ys_centroid'], d['uncertainty'])
+        (tile_id, d['wkt_str'], d['size_px'], int(d['xs_centroid']), int(d['ys_centroid']), d['uncertainty'])
         for d in synapse_slices
     ]
 
+    print(syn_slice_rows)
+
     query, args = list_into_query(
         '''
-            INSERT INTO synapse_slices (
+            INSERT INTO synapse_slice (
               synapse_detection_tile_id, convex_hull_2d, size_px, xs_centroid, ys_centroid, uncertainty
             )
-            VALUES {syn_slice_rows}
+            VALUES {}
             RETURNING id;
         ''',
         syn_slice_rows,
-        fmt='(%s, ST_ConvexHull(ST_GeomFromText(%s)), %s, %s, %s)'
+        fmt='(%s, ST_ConvexHull(ST_GeomFromText(%s)), %s, %s, %s, %s)'
     )
 
     cursor = connection.cursor()
