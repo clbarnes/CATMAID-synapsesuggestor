@@ -51,8 +51,18 @@
   }
 },
 {
+  "model": "synapsesuggestor.synapsedetectiontile",
+  "pk": 2,
+  "fields": {
+    "synapse_suggestion_workflow": 1,
+    "x_tile_idx": 0,
+    "y_tile_idx": 0,
+    "z_tile_idx": 1
+  }
+},
+{
   "model": "synapsesuggestor.synapseslice",
-  "pk": 1,
+  "pk": 2,
   "fields": {
     "synapse_detection_tile": 1,
     "convex_hull_2d": "POLYGON ((0.0 0.0, 1.0 0.0, 1.0 1.0, 0.0 1.0, 0.0 0.0))",
@@ -64,7 +74,7 @@
 },
 {
   "model": "synapsesuggestor.synapseslice",
-  "pk": 2,
+  "pk": 3,
   "fields": {
     "synapse_detection_tile": 1,
     "convex_hull_2d": "POLYGON ((1.0 0.0, 2.0 0.0, 2.0 1.0, 1.0 1.0, 1.0 0.0))",
@@ -83,7 +93,7 @@
   "model": "synapsesuggestor.synapseslicesynapseobject",
   "pk": 1,
   "fields": {
-    "synapse_slice": 1,
+    "synapse_slice": 2,
     "synapse_object": 1
   }
 },
@@ -91,7 +101,7 @@
   "model": "synapsesuggestor.synapseslicesynapseobject",
   "pk": 2,
   "fields": {
-    "synapse_slice": 2,
+    "synapse_slice": 3,
     "synapse_object": 1
   }
 },
@@ -108,7 +118,7 @@
   "model": "synapsesuggestor.projectsynapsesuggestionworkflow",
   "pk": 1,
   "fields": {
-    "project": 2,
+    "project": 3,
     "synapse_suggestion_workflow": 1,
     "synapse_association_algorithm": 1,
     "created": "2017-05-31T20:04:48.623Z"
