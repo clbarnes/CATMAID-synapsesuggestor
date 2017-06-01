@@ -36,24 +36,27 @@ def add_treenode_synapse_associations(request, project_id=None):
     associations = get_request_list(request.POST, 'associations', tuple(), json.loads)
 
     if not associations:
-        return
+        return JsonResponse([], safe=False)
 
     rows = [(syn, treenode, algo_version, contact_px) for syn, treenode, contact_px in associations]
 
     query, cursor_args = list_into_query('''
         INSERT INTO synapse_slice_treenode (
-          synapse_slice_id, treenode_id, skeleton_association_algorithm_id, contact_px
+          synapse_slice_id, treenode_id, synapse_association_algorithm_id, contact_px
         )
-        VALUES {};
+        VALUES {}
+        RETURNING id;
     ''', rows, fmt='(%s, %s, %s, %s)')
 
     cursor = connection.cursor()
     cursor.execute(query, cursor_args)
 
+    return JsonResponse(cursor.fetchall(), safe=False)
+
 
 def get_treenode_associations(request, project_id=None):
     """
-    GET request which takes a skeleton ID and returns its treenode associations with synapses under the synapse
+    GET request which takes a skeleton ID and returns its treenode associations with synapse objects under the synapse
     suggestion workflow most recently associated with this project.
 
     skid
@@ -74,15 +77,18 @@ def get_treenode_associations(request, project_id=None):
     cursor = connection.cursor()
 
     cursor.execute('''
-        SELECT DISTINCT sstn.treenode_id, sstn.synapse_slice_id FROM synapse_slice_treenode sstn
+        SELECT sstn.treenode_id, ssso.synapse_object_id, sum(sstn.contact_px) FROM synapse_slice_treenode sstn
           INNER JOIN synapse_association_algorithm saa
             ON sstn.synapse_association_algorithm_id = saa.id
+          INNER JOIN synapse_slice_synapse_object ssso
+            ON sstn.synapse_slice_id = ssso.synapse_slice_id
           INNER JOIN treenode tn
             ON sstn.treenode_id = tn.id
           INNER JOIN project_synapse_suggestion_workflow pssw
             ON pssw.synapse_association_algorithm_id = saa.id
           WHERE tn.skeleton_id = %s
-            AND pssw.id = %s;
+            AND pssw.id = %s
+          GROUP BY sstn.treenode_id, ssso.synapse_object_id;
     ''', (skel_id, newest_pssw_id))
 
     # todo: allow user to choose from different PSSWs, or default to most recent in project
