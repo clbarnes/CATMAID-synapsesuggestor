@@ -3,7 +3,7 @@ from catmaid.tests.apis.common import CatmaidApiTestCase
 
 
 class SynapseSuggestorApiTestCase(CatmaidApiTestCase):
-    fixtures = CatmaidApiTestCase.fixtures + ['synapsesuggestor_testdata']
+    fixtures = CatmaidApiTestCase.fixtures + ['synapsesuggestor_testdata.json']
 
     @classmethod
     def setUpTestData(cls):
