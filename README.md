@@ -6,7 +6,7 @@ extension for [CATMAID](www.catmaid.org).
 ## Quick start
 
 1. Install synapsesuggestor in whichever python environment is running
-CATMAID with `python setup.py install`
+CATMAID with `pip install -e path/to/this/directory`
 
 2. Add "synapsesuggestor" to your INSTALLED_APPS setting like this:
 
