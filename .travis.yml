@@ -21,7 +21,8 @@ addons:
   postgresql: 9.5
 before_install:
   - travis_retry sudo apt-get update -qq
-  - git clone https://github.com/catmaid/CATMAID.git $CATMAID_DIR
+  # todo: base on catmaid master
+  - git clone -b features/1524-hdf5-stack-upload https://github.com/clbarnes/CATMAID.git $CATMAID_DIR
   - cd $CATMAID_DIR
   - travis_retry sudo apt-get install -qq $(< packagelist-ubuntu-14.04-apt.txt)
   - travis_retry python -m pip install -U pip
