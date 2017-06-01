@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-from types import StringTypes
 import logging
 from string import Formatter
+
+from six import string_types
 
 from synapsesuggestor.models import ProjectSynapseSuggestionWorkflow
 
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def flatten(arg):
     elements = []
-    if isinstance(arg, StringTypes):
+    if isinstance(arg, string_types):
         elements.append(arg)
     else:
         try:
