@@ -48,10 +48,12 @@ before_install:
   - echo "SERVE_STATIC = True" >> projects/mysite/settings.py
   # Show full front-end errors by default
   - echo "EXPAND_FRONTEND_ERRORS = True" >> projects/mysite/settings.py
+  - echo "INSTALLED_APPS += ('synapsesuggestor.apps.SynapsesuggestorConfig', )" >> projects/mysite/settings.py
+  - echo "urlpatterns += [url(r'^synapsesuggestor/', include('synapsesuggestor.urls'))]" >> projects/mysite/urls.py
   - cat projects/mysite/settings.py
   - cd ..
 install:
-  - pip install -q -e $TRAVIS_BUILD_DIR
+  - pip install -e $TRAVIS_BUILD_DIR
 script:
   - cd $CATMAID_DIR/django/projects
   - python manage.py migrate --noinput
