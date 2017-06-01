@@ -106,8 +106,6 @@ def add_synapse_slices_from_tile(request, project_id=None):
         for d in synapse_slices
     ]
 
-    print(syn_slice_rows)
-
     query, args = list_into_query(
         '''
             INSERT INTO synapse_slice (
