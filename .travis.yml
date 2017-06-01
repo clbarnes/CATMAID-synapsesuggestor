@@ -10,7 +10,7 @@ python:
   - "pypy"
 env:
   global:
-    - CATMAID_DIR=$(pwd)/../catmaid
+    - CATMAID_DIR=$TRAVIS_BUILD_DIR/travis/CATMAID
 addons:
   apt:
     sources:
