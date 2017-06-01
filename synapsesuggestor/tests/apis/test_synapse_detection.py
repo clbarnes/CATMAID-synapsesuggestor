@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
+import unittest
 
 from six import assertCountEqual
 
@@ -38,6 +39,7 @@ class SynapseDetectionApiTests(SynapseSuggestorApiTestCase):
         self.assertListEqual(expected_result, parsed_response)
 
     def test_add_synapse_slices_from_tile(self):
+        """Depends on get_detected_tiles"""
         new_synapses = [
             {
                 'id': 1,
@@ -70,11 +72,11 @@ class SynapseDetectionApiTests(SynapseSuggestorApiTestCase):
         response = self.client.post(URL_PREFIX + '/tiles/insert-synapse-slices', data)
         self.assertEqual(response.status_code, 200)
         parsed_response = json.loads(response.content.decode('utf-8'))
-        print(parsed_response)
 
         self.assertEqual(len(new_synapses), len(parsed_response))
-        self.assertSetEqual(set(orig_ids), set(parsed_response))
-        self.assertEqual(len(parsed_response), set(parsed_response.values()), 'New synapse IDs are repeated')
+        self.assertSetEqual(set(orig_ids), {int(key) for key in parsed_response.keys()})
+        self.assertEqual(len(parsed_response), len(set(parsed_response.values())))
 
+    @unittest.expectedFailure
     def test_agglomerate_synapse_slices(self):
-        pass
+        self.assertIs(True, False)
