@@ -24,6 +24,7 @@ class SynapseDetectionTiling(models.Model):
         unique_together = ('stack', 'tile_height_px', 'tile_width_px')
 
 
+@python_2_unicode_compatible
 class Algorithm(models.Model):
     """Abstract model for algorithms"""
     hashcode = models.CharField(max_length=64, db_index=True)
@@ -46,9 +47,12 @@ class SynapseDetectionAlgorithm(Algorithm):
 
 class SynapseImageStore(models.Model):
     """Data store used for intermediate and output pixel labels"""
-    pass
+
+    class Meta:
+        db_table = 'synapse_image_store'
 
 
+@python_2_unicode_compatible
 class SynapseSuggestionWorkflow(models.Model):
     """Convergence point for information relating to synapse detection"""
     synapse_detection_tiling = models.ForeignKey(SynapseDetectionTiling, on_delete=models.CASCADE)
@@ -65,6 +69,7 @@ class SynapseSuggestionWorkflow(models.Model):
         unique_together = ('synapse_detection_tiling', 'synapse_detection_algorithm')
 
 
+@python_2_unicode_compatible
 class SynapseDetectionTile(models.Model):
     """Mapping from tile indices to algorithm which has most recently been used to detect synapses in that tile"""
     synapse_suggestion_workflow = models.ForeignKey(SynapseSuggestionWorkflow, on_delete=models.CASCADE)
@@ -84,6 +89,7 @@ class SynapseDetectionTile(models.Model):
         unique_together = ('synapse_suggestion_workflow', 'x_tile_idx', 'y_tile_idx', 'z_tile_idx')
 
 
+@python_2_unicode_compatible
 class SynapseSlice(models.Model):
     """Region of a 2D cross-section of a synapse which appears in one tile"""
     synapse_detection_tile = models.ForeignKey(SynapseDetectionTile, on_delete=models.CASCADE)
@@ -105,6 +111,7 @@ class SynapseSlice(models.Model):
         db_table = 'synapse_slice'
 
 
+@python_2_unicode_compatible
 class SynapseObject(models.Model):
     """3D synapse object"""
 
@@ -115,6 +122,7 @@ class SynapseObject(models.Model):
         db_table = 'synapse_object'
 
 
+@python_2_unicode_compatible
 class SynapseSliceSynapseObject(models.Model):
     """Mapping from 2D partial synapse cross-sections to whole 3D synapse objects"""
     synapse_slice = models.OneToOneField(SynapseSlice, unique=True, on_delete=models.CASCADE)
@@ -139,6 +147,7 @@ class SynapseAssociationAlgorithm(Algorithm):
         db_table = 'synapse_association_algorithm'
 
 
+@python_2_unicode_compatible
 class ProjectSynapseSuggestionWorkflow(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     synapse_suggestion_workflow = models.ForeignKey(SynapseSuggestionWorkflow, on_delete=models.CASCADE)
@@ -153,6 +162,7 @@ class ProjectSynapseSuggestionWorkflow(models.Model):
         db_table = 'project_synapse_suggestion_workflow'
 
 
+@python_2_unicode_compatible
 class SynapseSliceTreenode(models.Model):
     """Mapping from 2D partial synapse cross-sections to treenodes"""
     synapse_slice = models.ForeignKey(SynapseSlice, on_delete=models.CASCADE, null=True)
