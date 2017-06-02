@@ -63,8 +63,8 @@ class SynapseDetectionApiTests(SynapseSuggestorApiTestCase):
         dict_strs = []
         for idx, coord_lst in enumerate(coords, 1):
             wkt_str = 'MULTIPOINT({})'.format(','.join('{} {}'.format(x, y) for x, y in coord_lst))
-            xs_centroid = np.mean([x for x, _ in coord_lst]).astype(int)
-            ys_centroid = np.mean([y for _, y in coord_lst]).astype(int)
+            xs_centroid = int(np.mean([x for x, _ in coord_lst]))
+            ys_centroid = int(np.mean([y for _, y in coord_lst]))
 
             orig_ids.append(idx)
 
