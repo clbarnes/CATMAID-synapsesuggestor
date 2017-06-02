@@ -21,6 +21,8 @@ addons:
   postgresql: 9.5
 before_install:
   - travis_retry sudo apt-get update -qq
+  - pip install coveralls
+  # setup CATMAID
   # todo: base on catmaid master
   - git clone -b features/1524-hdf5-stack-upload https://github.com/clbarnes/CATMAID.git $CATMAID_DIR
   - cd $CATMAID_DIR
@@ -60,3 +62,6 @@ script:
   - python manage.py migrate --noinput
   - python manage.py collectstatic --link --noinput
   - python manage.py test synapsesuggestor.tests
+  - coverage run --source=synapsesuggestor manage.py test synapsesuggestor.tests
+after_success:
+  - coveralls
