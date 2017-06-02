@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.org/clbarnes/CATMAID-synapsesuggestor.svg?branch=master)](https://travis-ci.org/clbarnes/CATMAID-synapsesuggestor)
 [![Coverage Status](https://coveralls.io/repos/github/clbarnes/CATMAID-synapsesuggestor/badge.svg?branch=master)](https://coveralls.io/github/clbarnes/CATMAID-synapsesuggestor?branch=master)
+
 WORK IN PROGRESS
 
 # CATMAID-synapsesuggestor
@@ -8,9 +9,9 @@ synapsesuggestor is a django application which acts as a drop-in
 extension for [CATMAID](http://www.catmaid.org). It contains API
 endpoints and static files for:
 
-- [] Creating synapse detection jobs
+- [ ] Creating synapse detection jobs
 - [x] Adding the results to the catmaid database
-- [] Viewing and analysing the results
+- [ ] Viewing and analysing the results
 
 ## Quick start
 
