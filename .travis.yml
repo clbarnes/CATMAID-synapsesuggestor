@@ -55,11 +55,11 @@ before_install:
   - echo "urlpatterns += [url(r'^synapsesuggestor/', include('synapsesuggestor.urls'))]" >> projects/mysite/urls.py
   - cat projects/mysite/settings.py
   - cd $CATMAID_DIR/django/projects
-  - python manage.py migrate --noinput
-  - python manage.py collectstatic --link --noinput
 install:
   - pip install -e $TRAVIS_BUILD_DIR
+  - python manage.py migrate --noinput
+  - python manage.py collectstatic --link --noinput
 script:
-  - coverage run manage.py test synapsesuggestor.tests
+  - coverage run --source=synapsesuggestor manage.py test synapsesuggestor.tests
 after_success:
   - coveralls
