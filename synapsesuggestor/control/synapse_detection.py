@@ -14,7 +14,7 @@ from rest_framework.decorators import api_view
 from catmaid.control.authentication import requires_user_role
 from catmaid.control.common import get_request_list
 from synapsesuggestor.control.common import list_into_query
-from synapsesuggestor.models import SynapseDetectionTile
+from synapsesuggestor.models import SynapseDetectionTile, SynapseObject
 
 
 logger = logging.getLogger(__name__)
@@ -149,7 +149,7 @@ def _get_synapse_slice_adjacencies(synapse_slice_ids):
           INNER JOIN (VALUES {}) these_ids (id)
             ON these_ids.id = this_slice.id
           INNER JOIN synapse_detection_tile this_tile
-            ON this_tile.id = this_slice.tile_synapse_detection_algorithm_id
+            ON this_tile.id = this_slice.synapse_detection_tile_id
           INNER JOIN synapse_suggestion_workflow ssw
             ON this_tile.synapse_suggestion_workflow_id = ssw.id
           INNER JOIN synapse_detection_tile that_tile
@@ -166,6 +166,20 @@ def _get_synapse_slice_adjacencies(synapse_slice_ids):
     results = cursor.fetchall()
     graph.add_edges_from(results)
     return graph
+
+
+def _delete_unused_synapse_objects():
+    cursor = connection.cursor()
+    cursor.execute('''
+        DELETE FROM synapse_object so
+          WHERE NOT EXISTS (
+            SELECT * FROM synapse_slice_synapse_object ss_so
+              WHERE so.id = ss_so.synapse_object_id
+          )
+          RETURNING so.id;
+    ''')
+
+    return [item[0] for item in cursor.fetchall()]
 
 
 def _agglomerate_synapse_slices(synapse_slice_ids):
@@ -236,23 +250,19 @@ def _agglomerate_synapse_slices(synapse_slice_ids):
         cursor.execute(query, cursor_args)
 
     logger.info('Creating new synapse objects')
-    query, args = list_into_query('''
-        INSERT INTO synapse_object (id)
-          VALUES {}
-          RETURNING id;
-    ''', ['DEFAULT' for _ in unmapped_syn_slices], fmt='(%s)')
-    cursor.execute(query, args)
 
-    for syn_slice_group, new_syn_obj_tup in zip(unmapped_syn_slices, cursor.fetchall()):
-        new_mappings.extend((syn_slice, new_syn_obj_tup[0]) for syn_slice in syn_slice_group)
+    new_syn_objs = SynapseObject.objects.bulk_create([SynapseObject()] * len(unmapped_syn_slices))
+
+    for syn_slice_group, new_syn_obj in zip(unmapped_syn_slices, new_syn_objs):
+        new_mappings.extend((syn_slice, new_syn_obj.id) for syn_slice in syn_slice_group)
 
     logger.info('Inserting new slice:object mappings')
     query, cursor_args = list_into_query("""
         INSERT INTO synapse_slice_synapse_object AS ss_so (synapse_slice_id, synapse_object_id)
-          VALUES {} AS new (slice_id, obj_id)
-          ON CONFLICT (ss_so.synapse_slice_id)
-            DO UPDATE SET ss_so.synapse_object_id = new.obj_id;
-    """, new_mappings, fmt='(%s, %s)')  # todo: check this
+          VALUES {}
+          ON CONFLICT (synapse_slice_id)
+            DO UPDATE SET synapse_object_id = EXCLUDED.synapse_object_id;
+    """, new_mappings, fmt='(%s, %s)')
 
     cursor.execute(query, cursor_args)
 
@@ -277,6 +287,12 @@ def agglomerate_synapse_slices(request, project_id=None):
     dict
         New mappings from synapse slice ID to synapse object ID.
     """
-    synapse_slice_ids = get_request_list(request.POST, 'synapse_slices', tuple, int)
-    new_mappings = _agglomerate_synapse_slices(synapse_slice_ids)
-    return JsonResponse(new_mappings)
+    synapse_slice_ids = get_request_list(request.POST, 'synapse_slices', tuple(), int)
+
+    if synapse_slice_ids:
+        new_mappings = _agglomerate_synapse_slices(synapse_slice_ids)
+    else:
+        new_mappings = dict()
+
+    deleted_objects = _delete_unused_synapse_objects()
+    return JsonResponse({'slice_object_mappings': new_mappings, 'deleted_objects': deleted_objects})
