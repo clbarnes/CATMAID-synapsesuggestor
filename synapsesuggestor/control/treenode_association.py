@@ -76,6 +76,8 @@ def get_treenode_associations(request, project_id=None):
 
     cursor = connection.cursor()
 
+    # todo: add null association for unassociated treenodes
+
     cursor.execute('''
         SELECT sstn.treenode_id, ssso.synapse_object_id, sum(sstn.contact_px) FROM synapse_slice_treenode sstn
           INNER JOIN synapse_association_algorithm saa
