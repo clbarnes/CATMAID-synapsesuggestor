@@ -40,6 +40,7 @@ def add_treenode_synapse_associations(request, project_id=None):
 
     rows = [(syn, treenode, algo_version, contact_px) for syn, treenode, contact_px in associations]
 
+    # todo: add null association for unassociated treenodes
     query, cursor_args = list_into_query('''
         INSERT INTO synapse_slice_treenode (
           synapse_slice_id, treenode_id, synapse_association_algorithm_id, contact_px
@@ -71,13 +72,13 @@ def get_treenode_associations(request, project_id=None):
 
     """
     skel_id = int(request.GET['skid'])
-
-    newest_pssw_id = get_most_recent_project_SS_workflow(project_id).id
+    pssw_id = int(request.GET.get(
+        'project_workflow_id', get_most_recent_project_SS_workflow(project_id).id
+    ))
 
     cursor = connection.cursor()
 
-    # todo: add null association for unassociated treenodes
-
+    # todo: assert that slices are associated with the correct workflow
     cursor.execute('''
         SELECT sstn.treenode_id, ssso.synapse_object_id, sum(sstn.contact_px) FROM synapse_slice_treenode sstn
           INNER JOIN synapse_association_algorithm saa
@@ -91,7 +92,7 @@ def get_treenode_associations(request, project_id=None):
           WHERE tn.skeleton_id = %s
             AND pssw.id = %s
           GROUP BY sstn.treenode_id, ssso.synapse_object_id;
-    ''', (skel_id, newest_pssw_id))
+    ''', (skel_id, pssw_id))
 
     # todo: allow user to choose from different PSSWs, or default to most recent in project
 
