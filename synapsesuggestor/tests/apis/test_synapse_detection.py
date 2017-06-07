@@ -5,12 +5,12 @@ import numpy as np
 from six import assertCountEqual
 
 from synapsesuggestor.models import SynapseSliceSynapseObject, SynapseObject
-from synapsesuggestor.tests.apis.common import SynapseSuggestorApiTestCase
+from synapsesuggestor.tests.common import SynapseSuggestorTestCase
 
 URL_PREFIX = '/synapsesuggestor/synapse-detection'
 
 
-class SynapseDetectionApiTests(SynapseSuggestorApiTestCase):
+class SynapseDetectionApiTests(SynapseSuggestorTestCase):
     def test_get_detected_tiles(self):
         self.fake_authentication()
 

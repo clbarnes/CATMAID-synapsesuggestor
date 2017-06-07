@@ -3,13 +3,13 @@ import json
 
 from six import assertCountEqual
 
-from synapsesuggestor.tests.apis.common import SynapseSuggestorApiTestCase
+from synapsesuggestor.tests.common import SynapseSuggestorTestCase
 
 
 URL_PREFIX = '/synapsesuggestor/treenode-association'
 
 
-class TreenodeAssociationApiTests(SynapseSuggestorApiTestCase):
+class TreenodeAssociationApiTests(SynapseSuggestorTestCase):
     def get_response(self, *args, **kwargs):
         response = self.client.get(*args, **kwargs)
         self.assertEqual(response.status_code, 200)
