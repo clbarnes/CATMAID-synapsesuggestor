@@ -135,7 +135,7 @@
   "fields": {
     "synapse_slice": 2,
     "treenode": 7,
-    "synapse_association_algorithm": 1,
+    "project_synapse_suggestion_workflow": 1,
     "contact_px": 5
   }
 }

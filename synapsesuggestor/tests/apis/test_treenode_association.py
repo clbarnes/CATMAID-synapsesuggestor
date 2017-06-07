@@ -53,7 +53,7 @@ class TreenodeAssociationApiTests(SynapseSuggestorTestCase):
         self.fake_authentication()
         response = self.client.post(
             URL_PREFIX + '/{}/add'.format(self.test_project_id),
-            {'algo_version': 1, 'associations': associations}
+            {'project_workflow_id': 1, 'associations': associations}
         )
         self.assertEqual(response.status_code, 200)
         parsed_response = json.loads(response.content.decode('utf-8'))

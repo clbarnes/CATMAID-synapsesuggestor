@@ -168,7 +168,7 @@ class SynapseSliceTreenode(models.Model):
     synapse_slice = models.ForeignKey(SynapseSlice, on_delete=models.CASCADE, null=True)
     treenode = models.ForeignKey(Treenode, null=True, on_delete=models.CASCADE)
 
-    synapse_association_algorithm = models.ForeignKey(SynapseAssociationAlgorithm, on_delete=models.CASCADE)
+    project_synapse_suggestion_workflow = models.ForeignKey(ProjectSynapseSuggestionWorkflow, on_delete=models.CASCADE)
     contact_px = models.IntegerField(verbose_name='Size in pixels of 1D contact area between neuron and synapse')
 
     # contact geometry?

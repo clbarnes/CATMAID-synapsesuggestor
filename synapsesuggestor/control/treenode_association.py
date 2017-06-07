@@ -32,18 +32,18 @@ def add_treenode_synapse_associations(request, project_id=None):
     """
     # todo: add null -> tn.id association if no synapses are found
 
-    algo_version = request.POST['algo_version']
+    pssw_id = request.POST['project_workflow_id']
     associations = get_request_list(request.POST, 'associations', tuple(), json.loads)
 
     if not associations:
         return JsonResponse([], safe=False)
 
-    rows = [(syn, treenode, algo_version, contact_px) for syn, treenode, contact_px in associations]
+    rows = [(syn, treenode, pssw_id, contact_px) for syn, treenode, contact_px in associations]
 
     # todo: add null association for unassociated treenodes
     query, cursor_args = list_into_query('''
         INSERT INTO synapse_slice_treenode (
-          synapse_slice_id, treenode_id, synapse_association_algorithm_id, contact_px
+          synapse_slice_id, treenode_id, project_synapse_suggestion_workflow_id, contact_px
         )
         VALUES {}
         RETURNING id;
@@ -81,19 +81,15 @@ def get_treenode_associations(request, project_id=None):
     # todo: assert that slices are associated with the correct workflow
     cursor.execute('''
         SELECT sstn.treenode_id, ssso.synapse_object_id, sum(sstn.contact_px) FROM synapse_slice_treenode sstn
-          INNER JOIN synapse_association_algorithm saa
-            ON sstn.synapse_association_algorithm_id = saa.id
+          INNER JOIN project_synapse_suggestion_workflow pssw
+            ON sstn.project_synapse_suggestion_workflow_id = pssw.id
           INNER JOIN synapse_slice_synapse_object ssso
             ON sstn.synapse_slice_id = ssso.synapse_slice_id
           INNER JOIN treenode tn
             ON sstn.treenode_id = tn.id
-          INNER JOIN project_synapse_suggestion_workflow pssw
-            ON pssw.synapse_association_algorithm_id = saa.id
           WHERE tn.skeleton_id = %s
             AND pssw.id = %s
           GROUP BY sstn.treenode_id, ssso.synapse_object_id;
     ''', (skel_id, pssw_id))
-
-    # todo: allow user to choose from different PSSWs, or default to most recent in project
 
     return JsonResponse(cursor.fetchall(), safe=False)
