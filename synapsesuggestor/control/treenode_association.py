@@ -32,18 +32,20 @@ def add_treenode_synapse_associations(request, project_id=None):
     """
     # todo: add null -> tn.id association if no synapses are found
 
-    pssw_id = request.POST['project_workflow_id']
+    pssw_id = int(request.POST.get(
+        'project_workflow_id', get_most_recent_project_SS_workflow(project_id).id
+    ))
     associations = get_request_list(request.POST, 'associations', tuple(), json.loads)
 
     if not associations:
         return JsonResponse([], safe=False)
 
-    rows = [(syn, treenode, pssw_id, contact_px) for syn, treenode, contact_px in associations]
+    rows = [(syn, treenode, contact_px, pssw_id) for syn, treenode, contact_px in associations]
 
     # todo: add null association for unassociated treenodes
     query, cursor_args = list_into_query('''
         INSERT INTO synapse_slice_treenode (
-          synapse_slice_id, treenode_id, project_synapse_suggestion_workflow_id, contact_px
+          synapse_slice_id, treenode_id, contact_px, project_synapse_suggestion_workflow_id
         )
         VALUES {}
         RETURNING id;
