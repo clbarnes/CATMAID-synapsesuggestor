@@ -101,6 +101,9 @@ def add_synapse_slices_from_tile(request, project_id=None):
     )
     tile_id = tile.id
 
+    if not synapse_slices:
+        return JsonResponse(dict())
+
     syn_slice_rows = [
         (tile_id, d['wkt_str'], d['size_px'], int(d['xs_centroid']), int(d['ys_centroid']), d['uncertainty'])
         for d in synapse_slices
