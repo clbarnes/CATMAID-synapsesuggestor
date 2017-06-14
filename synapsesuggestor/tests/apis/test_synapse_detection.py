@@ -4,7 +4,7 @@ import json
 import numpy as np
 from six import assertCountEqual
 
-from synapsesuggestor.models import SynapseSliceSynapseObject, SynapseObject
+from synapsesuggestor.models import SynapseSliceSynapseObject, SynapseObject, SynapseSlice
 from synapsesuggestor.tests.common import SynapseSuggestorTestCase
 
 URL_PREFIX = '/synapsesuggestor/synapse-detection'
@@ -106,9 +106,9 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         self.assertSetEqual(set(orig_ids), {int(key) for key in parsed_response.keys()})
         self.assertEqual(len(parsed_response), len(set(parsed_response.values())))
 
-    def insert_synapse(self, z, *toplefts):
+    def insert_synapse(self, z, *toplefts, **kwargs):
         """
-        Insert a single synapse into the database at the given location
+        Insert a synapses into the database at the given locations
 
         Parameters
         ----------
@@ -116,16 +116,21 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
             z index of synapse slice
         topleft : tuple
             x, y coordinates of top left point of 1x1x1 synapse slice
+        kwargs
+            Can include 'width' and 'height' (default 1)
 
         Returns
         -------
         list
             IDs of the inserted synapses
         """
+        width = kwargs.get('width', 1)
+        height = kwargs.get('height', 1)
+
         syn_coords = []
         for topleft in toplefts:
             x, y = topleft
-            syn_coords.append([(x, y), (x+1, 7), (x+1, y+1), (x, y+1)])
+            syn_coords.append([(x, y), (x + width, y), (x + width, y + height), (x, y + height)])
 
         data, orig_ids = self.create_synapse_slice_data(syn_coords, (0, 0, z))
 
@@ -155,6 +160,9 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         return json.loads(response.content.decode('utf-8'))
 
     def test_agglomerate_synapse_slices_deletes_object(self):
+        """
+        Test that the agglomerate endpoint deletes empty synapse objects
+        """
         self.fake_authentication()
 
         parsed_response = self.agglomerate_synapses([])
@@ -164,7 +172,11 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         self.assertEqual(syn_objs.exists(), False)
 
     def test_agglomerate_synapse_slices_xy_adjacent(self):
-        """Depends on add_synapse_slices_from_tile"""
+        """
+        Depends on add_synapse_slices_from_tile
+
+        Test that two adjacent synapses on the same Z plane are agglomerated.
+        """
         self.fake_authentication()
 
         new_ids = self.insert_synapse(0, (0, 1))
@@ -176,7 +188,11 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         self.assertDictEqual(expected_response, parsed_response['slice_object_mappings'])
 
     def test_agglomerate_synapse_slices_z_adjacent(self):
-        """Depends on add_synapse_slices_from_tile"""
+        """
+        Depends on add_synapse_slices_from_tile
+
+        Test that two adjacent synapses on different Z planes are agglomerated
+        """
         self.fake_authentication()
 
         new_ids = self.insert_synapse(1, (0, 0))
@@ -188,7 +204,12 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         self.assertDictEqual(expected_response, parsed_response['slice_object_mappings'])
 
     def test_agglomerate_synapse_slices_separate(self):
-        """Depends on add_synapse_slices_from_tile"""
+        """
+        Depends on add_synapse_slices_from_tile
+
+        Test that a new synapse slice separated from existing synapse slices is not agglomerated with them,
+        and a new synapse object is created for it.
+        """
         self.fake_authentication()
         existing_mappings = SynapseSliceSynapseObject.objects.all()
         len(existing_mappings)  # force query to evaluate
@@ -206,7 +227,11 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         self.assertNotIn(new_mappings[0].synapse_object_id, [m.synapse_object_id for m in existing_mappings])
 
     def test_agglomerate_synapse_slices_two_objects(self):
-        """Depends on add_synapse_slices_from_tile and agglomerate_synapse_slices"""
+        """
+        Depends on add_synapse_slices_from_tile and agglomerate_synapse_slices
+
+        Test that two distinct synapse objects can be merged into one if a new slice is added bridging them.
+        """
         self.fake_authentication()
 
         # set up distant syn slice with its own syn object
@@ -216,13 +241,60 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         self.assertEqual(len(parsed_response['slice_object_mappings']), 1)
 
         # set up a bridge synapse which will force all of them to agglomerate
-        new_ids = self.insert_synapse(0, (0, 2))
+        new_ids = self.insert_synapse(0, (0, 1), height=2)
         parsed_response = self.agglomerate_synapses(new_ids)
 
-        self.assertEqual(len(parsed_response['slice_object_mappings']), 3)  # all 3 existing syn slices are involved in the merge
+        self.assertEqual(len(parsed_response['slice_object_mappings']), 4)  # all 4 syn slices are merged
         self.assertEqual(len(set(parsed_response['slice_object_mappings'].values())), 1)  # they all map to the same synapse object
 
         # test old mapping was cleared up
         mappings = SynapseSliceSynapseObject.objects.all()
         self.assertEqual(len(mappings), 4)  # there is still only 1 mapping per slice
         self.assertEqual(len({m.synapse_object_id for m in mappings}), 1)  # all mappings point to the same object
+
+    def test_agglomerate_synapses_same_slice(self):
+        """
+        Depends on add_synapse_slices_from_tile
+
+        Test that cases where the same synapse slice ID is passed in twice does not raise errors.
+        """
+        self.fake_authentication()
+
+        new_ids = self.insert_synapse(0, (0, 1))
+        duplicated_new_ids = list(new_ids) * 2
+
+        parsed_response = self.agglomerate_synapses(duplicated_new_ids)
+
+        expected_response = {str(new_ids[0]): 1, '2': 1, '3': 1}
+
+        self.assertDictEqual(expected_response, parsed_response['slice_object_mappings'])
+
+    def clear_synapses(self):
+        for model in SynapseSlice, SynapseObject, SynapseSliceSynapseObject:
+            model.objects.all().delete()
+            self.assertEqual(model.objects.count(), 0)
+
+    def test_agglomerate_synapses_double_association(self):
+        """
+        Depends on add_synapse_slices_from_tile and agglomerate_synapse_slices
+
+        Test that when new synapse slices are added which straddle an existing multi-slice object, they are all
+        agglomerated together (original bug tried to map slice to two different synapse objects)
+        """
+        self.fake_authentication()
+        self.clear_synapses()
+
+        leftmost_ids = self.insert_synapse(0, (0, 0))
+        self.agglomerate_synapses(leftmost_ids)
+        right_orig_ids = self.insert_synapse(0, (5, 0), (7, 0), width=2)
+        self.agglomerate_synapses(right_orig_ids)
+
+        self.assertEqual(SynapseObject.objects.count(), 2)
+        self.assertEqual(SynapseSliceSynapseObject.objects.count(), SynapseSlice.objects.count())
+
+        bridge_ids = self.insert_synapse(0, (1, 0), (3, 0), width=2)
+        rightmost_ids = self.insert_synapse(0, (9, 0))
+        self.agglomerate_synapses(bridge_ids + rightmost_ids)
+
+        self.assertEqual(SynapseObject.objects.count(), 1)
+        self.assertEqual(SynapseSliceSynapseObject.objects.count(), SynapseSlice.objects.count())

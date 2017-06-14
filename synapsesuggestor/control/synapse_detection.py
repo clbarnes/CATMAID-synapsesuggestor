@@ -171,6 +171,104 @@ def _get_synapse_slice_adjacencies(synapse_slice_ids):
     return graph
 
 
+def _adjacencies_to_slice_clusters(adjacencies):
+    """
+    Find the connected components of the adjacency graph and include slices not in the original graph,
+    but which share a synapse object with those which are, as well as the mappings from connected components to the
+    set of synapse objects its slices are already associated with.
+
+    This function is terrible.
+
+    Parameters
+    ----------
+    adjacencies : networkx.Graph
+
+    Returns
+    -------
+    list of tuple of (set, set)
+    """
+    cursor = connection.cursor()
+    query, cursor_args = list_into_query('''
+            SELECT ss_so2.synapse_slice_id, ss_so2.synapse_object_id FROM synapse_slice_synapse_object ss_so
+              INNER JOIN (VALUES {}) ss_interest (id)
+                ON ss_so.synapse_slice_id = ss_interest.id
+              INNER JOIN synapse_slice_synapse_object ss_so2
+                ON ss_so.synapse_object_id = ss_so2.synapse_object_id;
+        ''', adjacencies.nodes(), '(%s)')
+    cursor.execute(query, cursor_args)
+
+    existing_slice_to_obj = dict()
+    existing_obj_to_slices = dict()
+    for slice, obj in cursor.fetchall():
+        existing_slice_to_obj[slice] = obj
+        if obj not in existing_obj_to_slices:
+            existing_obj_to_slices[obj] = set()
+        existing_obj_to_slices[obj].add(slice)
+
+    for slice_group in existing_obj_to_slices.values():
+        # order doesn't matter
+        adjacencies.add_path(slice_group)
+
+    out = []
+    for connected_component in nx.connected_components(adjacencies):
+        possible_objects = {None}
+        for slice_id in connected_component:
+            possible_objects.add(existing_slice_to_obj.get(slice_id))
+        possible_objects.remove(None)
+        slices = set(connected_component)
+        out.append((slices, possible_objects))
+
+    return out
+
+
+def _agglomerate_synapse_slices(slice_clusters):
+    """
+    - If a new synapse slice should belong to an existing synapse object, add it
+    - If a new synapse slice bridges the gap between existing synapse objects, remap all slices belonging to the
+    obsolete object
+    - If a new synapse slice does not belong to an existing synapse object, create it
+
+    Parameters
+    ----------
+    slice_clusters : list of tuple of (set, set)
+        Graph containing information about the adjacencies between synapse slices, whose nodes are the integer IDs of
+        the synapse slices
+
+    Returns
+    -------
+    dict
+        Dictionary mapping from synapse slices to synapse objects.
+    """
+    new_mappings = dict()
+    unmapped_syn_slice_groups = []
+    bulk_create_args = []
+    for slice_ids, possible_object_ids in slice_clusters:
+        if possible_object_ids:
+            min_id = min(possible_object_ids)
+            for slice_id in slice_ids:
+                new_mappings[slice_id] = min_id
+        else:
+            unmapped_syn_slice_groups.append(slice_ids)
+            bulk_create_args.append(SynapseObject())
+
+    new_syn_objs = SynapseObject.objects.bulk_create(bulk_create_args)
+
+    for syn_slice_group, new_syn_obj in zip(unmapped_syn_slice_groups, new_syn_objs):
+        new_mappings.update({syn_slice: new_syn_obj.id for syn_slice in syn_slice_group})
+
+    logger.info('Inserting new slice:object mappings')
+    query, cursor_args = list_into_query("""
+        INSERT INTO synapse_slice_synapse_object AS ss_so (synapse_slice_id, synapse_object_id)
+          VALUES {}
+          ON CONFLICT (synapse_slice_id)
+            DO UPDATE SET synapse_object_id = EXCLUDED.synapse_object_id;
+    """, new_mappings.items(), fmt='(%s, %s)')
+    cursor = connection.cursor()
+    cursor.execute(query, cursor_args)
+
+    return dict(new_mappings)
+
+
 def _delete_unused_synapse_objects():
     cursor = connection.cursor()
     cursor.execute('''
@@ -183,93 +281,6 @@ def _delete_unused_synapse_objects():
     ''')
 
     return [item[0] for item in cursor.fetchall()]
-
-
-def _agglomerate_synapse_slices(synapse_slice_ids):
-    """
-    - Find adjacencies between given synapse slices and all other synapse slices
-    - If a new synapse slice should belong to an existing synapse object, add it
-    - If a new synapse slice bridges the gap between existing synapse objects, remap all slices belonging to the
-    obsolete object
-    - If a new synapse slice does not belong to an existing synapse object, create it
-
-    Parameters
-    ----------
-    synapse_slice_ids
-
-    Returns
-    -------
-
-    """
-    adjacencies = _get_synapse_slice_adjacencies(synapse_slice_ids)
-
-    # get existing synapse slice -> synapse object mappings for synapse slices involved in adjacencies with given
-    # synapse slices
-
-    cursor = connection.cursor()
-    query, cursor_args = list_into_query('''
-        SELECT ss_so2.synapse_slice_id, ss_so2.synapse_object_id FROM synapse_slice_synapse_object ss_so
-          INNER JOIN (VALUES {}) ss_interest (id)
-            ON ss_so.synapse_slice_id = ss_interest.id
-          INNER JOIN synapse_slice_synapse_object ss_so2
-            ON ss_so.synapse_object_id = ss_so2.synapse_object_id;
-    ''', adjacencies.nodes(), '(%s)')
-    cursor.execute(query, cursor_args)
-    existing_syn_slice_to_obj = dict(cursor.fetchall())
-
-    # initialise list of new mappings to add, and old objects to remove
-
-    new_mappings = []
-    obsolete_objects = set()
-
-    # list of lists: each inner list is a group of adjacent synapse slices
-    unmapped_syn_slices = []
-
-    for syn_slice_group in nx.connected_components(adjacencies):
-        # get object IDs already associated with slices in this new object
-        syn_obj_ids = {
-            existing_syn_slice_to_obj[slice_id]
-            for slice_id in syn_slice_group
-            if slice_id in existing_syn_slice_to_obj
-        }
-
-        if len(syn_obj_ids) == 0:
-            # these need a new object created
-            unmapped_syn_slices.append(syn_slice_group)
-        else:
-            # of the existing objects associated with these slices, pick one
-            min_obj_id = min(syn_obj_ids)
-            # get set of slices, new and existing, to map to a single existing object
-            slices_to_map = set(syn_slice_group).union(
-                key for key, value in existing_syn_slice_to_obj.items()
-                if value in syn_obj_ids and value != min_obj_id
-            )
-            new_mappings.extend((slice_id, min_obj_id) for slice_id in slices_to_map)
-            obsolete_objects.update(syn_obj_id for syn_obj_id in syn_obj_ids if syn_obj_id != min_obj_id)
-
-    if obsolete_objects:  # todo: do this in SQL? probably possible with delete using and count
-        logger.info('Deleting obsolete synapse objects')
-        query, cursor_args = list_into_query("DELETE FROM synapse_object WHERE id IN ({});", obsolete_objects)
-        cursor.execute(query, cursor_args)
-
-    logger.info('Creating new synapse objects')
-
-    new_syn_objs = SynapseObject.objects.bulk_create([SynapseObject()] * len(unmapped_syn_slices))
-
-    for syn_slice_group, new_syn_obj in zip(unmapped_syn_slices, new_syn_objs):
-        new_mappings.extend((syn_slice, new_syn_obj.id) for syn_slice in syn_slice_group)
-
-    logger.info('Inserting new slice:object mappings')
-    query, cursor_args = list_into_query("""
-        INSERT INTO synapse_slice_synapse_object AS ss_so (synapse_slice_id, synapse_object_id)
-          VALUES {}
-          ON CONFLICT (synapse_slice_id)
-            DO UPDATE SET synapse_object_id = EXCLUDED.synapse_object_id;
-    """, new_mappings, fmt='(%s, %s)')
-
-    cursor.execute(query, cursor_args)
-
-    return dict(new_mappings)
 
 
 def agglomerate_synapse_slices(request, project_id=None):
@@ -293,7 +304,9 @@ def agglomerate_synapse_slices(request, project_id=None):
     synapse_slice_ids = get_request_list(request.POST, 'synapse_slices', tuple(), int)
 
     if synapse_slice_ids:
-        new_mappings = _agglomerate_synapse_slices(synapse_slice_ids)
+        adjacencies = _get_synapse_slice_adjacencies(synapse_slice_ids)
+        ext_adjacencies = _adjacencies_to_slice_clusters(adjacencies)
+        new_mappings = _agglomerate_synapse_slices(ext_adjacencies)
     else:
         new_mappings = dict()
 
