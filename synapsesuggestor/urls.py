@@ -3,7 +3,9 @@ from __future__ import unicode_literals
 
 from django.conf.urls import url
 
-from synapsesuggestor.control import (treenode_association as node_assoc, synapse_detection as syn_det, workflow)
+from synapsesuggestor.control import (
+    treenode_association as node_assoc, synapse_detection as syn_det, workflow, analysis
+)
 
 app_name = 'synapsesuggestor'
 
@@ -32,5 +34,5 @@ urlpatterns += [
 # analysis endpoints
 
 urlpatterns += [
-
+    url(r'^analysis/(?P<project_id>\d+)/slices-detail$', analysis.get_synapse_slice_details)
 ]
