@@ -14,18 +14,10 @@ from synapsesuggestor.models import (
 )
 
 
+@api_view(['GET'])
 def get_workflow(request, project_id=None):
     """
     Get or create all of the models required to establish a workflow.
-
-    Parameters
-    ----------
-    request
-    project_id
-
-    Returns
-    -------
-
     """
     stack_id = int(request.GET['stack_id'])
     tile_size = int(request.GET.get('tile_size', 512))
@@ -47,17 +39,10 @@ def get_workflow(request, project_id=None):
     })
 
 
+@api_view(['GET'])
 def get_project_workflow(request, project_id=None):
     """
-
-    Parameters
-    ----------
-    request
-    project_id
-
-    Returns
-    -------
-
+    Get or create all of the models required to establish a project workflow.
     """
     workflow_id = int(request.GET['workflow_id'])
     association_hash = request.GET['association_hash']
