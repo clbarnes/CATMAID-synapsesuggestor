@@ -12,11 +12,11 @@ from rest_framework.decorators import api_view
 from catmaid.control.common import get_request_list
 
 from synapsesuggestor.control.common import get_most_recent_project_SS_workflow
-from synapsesuggestor.models import ProjectSynapseSuggestionWorkflow
+from synapsesuggestor.models import ProjectSynapseSuggestionWorkflow, SynapseSuggestionWorkflow
 
 
 @api_view(['GET'])
-def get_synapse_slice_details(request, project_id=None):
+def get_skeleton_synapses(request, project_id=None):
     """
     Get the details of synapse slices detected in the given workflow ID associated with the given skeleton IDs.
 
@@ -57,7 +57,7 @@ def get_synapse_slice_details(request, project_id=None):
         items:
           type: array
         description: > array of arrays, each row of which contains data about a single synapse object and its
-        interaction with the given skeleton
+          interaction with the given skeleton
         required: true
     """
 
@@ -81,10 +81,12 @@ def get_synapse_slice_details(request, project_id=None):
 
     cursor = connection.cursor()
 
+    # todo: why is this casting necessary? unit tests produced strings
     cursor.execute('''
         SELECT 
             ss_so_synapse_object_id, array_agg(tn_id), tn_skeleton_id,
-            avg(that_ss_xs_centroid), avg(that_ss_ys_centroid), avg(tile_z_tile_idx), array_agg(tile_z_tile_idx),
+            cast(round(avg(that_ss_xs_centroid)) as int), cast(round(avg(that_ss_ys_centroid)) as int), 
+            cast(round(avg(tile_z_tile_idx)) as int), array_agg(tile_z_tile_idx),
             sum(that_ss_size_px), sum(ss_tn_contact_px), avg(that_ss_uncertainty)
         FROM (
             SELECT DISTINCT ON (that_ss.id) 
@@ -133,9 +135,12 @@ def _get_translation_resolution(project_id, ssw_id, cursor=None):
         cursor = connection.cursor()
 
     cursor.execute('''
-        SELECT ps.translation, stack.resolution FROM synapse_suggestion_workflow ssw
+        SELECT 
+          (ps.translation).x, (ps.translation).y, (ps.translation).z, 
+          (stack.resolution).x, (stack.resolution).y, (stack.resolution).z  
+        FROM synapse_suggestion_workflow ssw
           INNER JOIN synapse_detection_tiling tiling
-            ON ssw.synapse_detection_tiling.id = tiling.id
+            ON ssw.synapse_detection_tiling_id = tiling.id
           INNER JOIN stack
             ON tiling.stack_id = stack.id
           INNER JOIN project_stack ps
@@ -145,9 +150,9 @@ def _get_translation_resolution(project_id, ssw_id, cursor=None):
           LIMIT 1;
     ''', (project_id, ssw_id))
 
-    translation, resolution = cursor.fetchone()
+    trans_res = cursor.fetchone()
 
-    return np.array(translation), np.array(resolution)
+    return np.array(trans_res[:3]), np.array(trans_res[-3:])
 
 
 @api_view(['POST'])
@@ -188,8 +193,8 @@ def get_intersecting_connectors(request, project_id=None):
         'synapse_id', 'connector_id',
         'connector_x', 'connector_y', 'connector_z',
         'connector_confidence', 'connector_creator',
-        'relation_id', 'edge_confidence',
-        'treenode_id', 'treenode_x', 'treenode_y', 'treenode_z'
+        'relation_name', 'edge_confidence',
+        'treenode_id', 'treenode_x', 'treenode_y', 'treenode_z',
         'skeleton_id'
     ]
 
@@ -211,7 +216,7 @@ def get_intersecting_connectors(request, project_id=None):
     cursor.execute('''
       SELECT obj_edge.obj_id,
         c.id, c.location_x, c.location_y, c.location_z, c.confidence, c.user_id,
-        tc.relation_id, tc.confidence,
+        relation.relation_name, tc.confidence,
         tn.id, tn.location_x, tn.location_y, tn.location_z, 
         tn.skeleton_id
       FROM (
@@ -223,17 +228,20 @@ def get_intersecting_connectors(request, project_id=None):
             ON ss.synapse_detection_tile_id = tile.id
           INNER JOIN treenode_connector_edge tce
             ON (tile.z_tile_idx + %s) * %s BETWEEN ST_ZMin(tce.edge) AND ST_ZMax(tce.edge)
-            AND ST_Intersects(cg.geom, ST_TransScale(ss.convex_hull_2d, %s, %s, %s, %s))
+            AND ST_Intersects(tce.edge, ST_TransScale(ss.convex_hull_2d, %s, %s, %s, %s))
           WHERE ss_so.synapse_object_id = ANY(%s::bigint[])
             AND tce.project_id = %s
       ) as obj_edge (obj_id, tce_id)
       INNER JOIN treenode_connector tc
         ON tc.id = obj_edge.tce_id
+      INNER JOIN relation
+        ON tc.relation_id = relation.id
       INNER JOIN connector c
         ON c.id = tc.connector_id
       INNER JOIN treenode tn
-        ON tn.treenode_id = tn.id;
-    ''', (project_id, offset_zs, resolution[2], offset_xs, offset_ys, resolution[0], resolution[1], obj_ids))
+        ON tc.treenode_id = tn.id
+      WHERE relation.relation_name = ANY(ARRAY['presynaptic_to', 'postsynaptic_to']);
+    ''', (offset_zs, resolution[2], offset_xs, offset_ys, resolution[0], resolution[1], obj_ids, project_id))
 
     # todo: include treenodes (and skeletons?)
     return JsonResponse({'columns': columns, 'data': cursor.fetchall()})
