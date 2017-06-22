@@ -119,17 +119,15 @@ def _get_translation_resolution(project_id, ssw_id, cursor=None):
     """
     Return the translation and resolution for converting between stack and project coordinates.
 
-    Parameters
-    ----------
-    project_id : int
-    ssw_id
-    cursor : django.db.connection.cursor (optional)
+    Args:
+      project_id(int):
+      ssw_id(int): Synapse suggestion workflow ID
+      cursor(django.db.connection.cursor, optional):  (Default value = None)
 
-    Returns
-    -------
-    tuple of array-like
-        Translation: array of XYZ offset of stack origin from project origin, in project space
-        Resolution: array of XYZ stack pixel size, in project space
+    Returns:
+      tuple:  (numpy.ndarray, numpy.ndarray)
+        Translation is the location of the stack origin, in project space
+        Resolution is the size of a stack pixel, in project space
     """
     if cursor is None:
         cursor = connection.cursor()
