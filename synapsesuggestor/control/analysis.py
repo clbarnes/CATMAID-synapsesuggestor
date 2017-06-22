@@ -9,7 +9,6 @@ from django.db import connection
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
 
-from catmaid.control.node import get_provider
 from catmaid.control.common import get_request_list
 
 from synapsesuggestor.control.common import get_most_recent_project_SS_workflow
@@ -117,7 +116,21 @@ def get_synapse_slice_details(request, project_id=None):
 
 
 def _get_translation_resolution(project_id, ssw_id, cursor=None):
-    """Assuming XYZ"""
+    """
+    Return the translation and resolution for converting between stack and project coordinates.
+
+    Parameters
+    ----------
+    project_id : int
+    ssw_id
+    cursor : django.db.connection.cursor (optional)
+
+    Returns
+    -------
+    tuple of array-like
+        Translation: array of XYZ offset of stack origin from project origin, in project space
+        Resolution: array of XYZ stack pixel size, in project space
+    """
     if cursor is None:
         cursor = connection.cursor()
 
@@ -139,10 +152,38 @@ def _get_translation_resolution(project_id, ssw_id, cursor=None):
     return np.array(translation), np.array(resolution)
 
 
+@api_view(['POST'])
 def get_intersecting_connectors(request, project_id=None):
     """
     Given a set of synapse objects, return information connectors and treenodes they may be associated with.
-
+    ---
+    parameters:
+      - name: workflow_id
+        description: ID of synapse suggestion workflow through which synapse slices were detected
+        type: integer
+        required: false
+        paramType: form
+      - name: synapse_object_ids
+        description: Synapse objects to find information about
+        type: array
+        items:
+            type: integer
+        paramType: form
+        required: false
+    type:
+      columns:
+        type: array
+        items:
+          type: string
+        description: headers for columns in data array
+        required: true
+      data:
+        type: array
+        items:
+          type: array
+        description: > array of arrays, each row of which contains data about a single synapse object-connector edge
+        intersection
+        required: true
     """
 
     columns = [
@@ -155,7 +196,12 @@ def get_intersecting_connectors(request, project_id=None):
     ]
 
     obj_ids = get_request_list(request.POST, 'synapse_object_ids', tuple(), int)
-    ssw_id = request.POST['workflow_id']
+    if not obj_ids:
+        return JsonResponse({'columns': columns, 'data': []})
+
+    ssw_id = request.POST.get('workflow_id')
+    if ssw_id is None:
+        ssw_id = get_most_recent_project_SS_workflow(project_id).synapse_suggestion_workflow_id
 
     cursor = connection.cursor()
 
