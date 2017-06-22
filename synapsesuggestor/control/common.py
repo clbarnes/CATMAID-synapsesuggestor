@@ -27,22 +27,15 @@ def list_into_query(query, arg_lst, fmt='%s'):
     """
     Convert simple query with list of arguments into mogrifier-friendly form
 
-    Parameters
-    ----------
-    query : str
-        A string with a single {} in it
-    arg_lst : array-like
-        List of arguments to supply to SQL
-    fmt : str
-        Placeholder to use for each element (e.g. use this to wrap stuff in brackets), or to account for tuples
+    Args:
+      query(str): A string with a single {} in it
+      arg_lst(list): List of arguments to supply to SQL
+      fmt(str, optional): Placeholder to use for each element (e.g. use this to wrap stuff in brackets), or to account for tuples (Default value = '%s')
 
-    Returns
-    -------
-    (str, array-like)
-        The two arguments to pass to cursor.execute
+    Returns:
+      (str, tuple): The two arguments to pass to cursor.execute
 
-    Examples
-    --------
+    Examples:
     >>> list_into_query("DELETE FROM table_name WHERE id IN ({})", [1, 2, 3])
     >>> ("DELETE FROM table_name WHERE id IN (%s, %s, %s)", (1, 2, 3))
 
@@ -63,19 +56,13 @@ def list_into_query_multi(query, fmt=None, **kwargs):
     """
     Convert complex query with several lists of arguments into mogrifier-friendly form
 
-    Parameters
-    ----------
-    query : str
-        Format string using keyword format, e.g. 'Hi, my name is {name} and I am {age} years old'
-    fmt : dict
-        Mapping from keywords to SQL-friendly format strings (defaults to '%s' for everything)
-    kwargs
-        Mapping from keywords to argument lists
+    Args:
+      query(str): Format string using keyword format, e.g. 'Hi, my name is {name} and I am {age} years old'
+      fmt(dict, optional): Mapping from keywords to SQL-friendly format strings (defaults to '%s' for everything)
+      **kwargs: Mapping from keywords to argument lists
 
-    Returns
-    -------
-    (str, array-like)
-        The two arguments to pass to cursor.execute
+    Returns:
+      (str, tuple): The two arguments to pass to cursor.execute
 
     Examples
     --------
