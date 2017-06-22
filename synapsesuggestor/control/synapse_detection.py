@@ -27,16 +27,6 @@ def get_detected_tiles(request, project_id=None):
 
     GET parameters:
     workflow_id
-
-    Parameters
-    ----------
-    request
-    project_id
-
-    Returns
-    -------
-    list of lists
-        List of [x, y, z] indices of tiles which have been processed by the synapse detector
     """
 
     ssw_id = request.GET['workflow_id']
@@ -76,16 +66,6 @@ def add_synapse_slices_from_tile(request, project_id=None):
             "size_px"
             "uncertainty"
         }
-
-    Parameters
-    ----------
-    request
-    project_id
-
-    Returns
-    -------
-    dict
-        Mapping from naive IDs to database IDs
     """
     ssw_id = request.POST['workflow_id']
     synapse_slices = get_request_list(request.POST, 'synapse_slices', tuple(), json.loads)
@@ -128,21 +108,20 @@ def add_synapse_slices_from_tile(request, project_id=None):
     return JsonResponse(id_mapping)
 
 
-def _get_synapse_slice_adjacencies(synapse_slice_ids):
+def _get_synapse_slice_adjacencies(synapse_slice_ids, cursor=None):
     """
     Get adjacencies between given synapse slices and all other synapse slices which refer to synapse detection tiles
     which refer to the same synapse suggestion workflow.
 
-    Parameters
-    ----------
-    synapse_slice_ids : list
+    Args:
+        synapse_slice_ids(list):
 
-    Returns
-    -------
-    networkx.Graph
-        Graph of synapse slice adjacencies, whose node set is a superset of the given synapse slice IDs
+    Returns:
+        networkx.Graph: Graph where nodes are synapse slices and edges are spatial adjacencies
     """
-    cursor = connection.cursor()
+    if cursor is None:
+        cursor = connection.cursor()
+
     graph = nx.Graph()
     graph.add_nodes_from(synapse_slice_ids)
     # get rows of synapse slices of interest; join to their tiles; join to z-adjacent tiles; join to synapse slices
@@ -171,7 +150,7 @@ def _get_synapse_slice_adjacencies(synapse_slice_ids):
     return graph
 
 
-def _adjacencies_to_slice_clusters(adjacencies):
+def _adjacencies_to_slice_clusters(adjacencies, cursor=None):
     """
     Find the connected components of the adjacency graph and include slices not in the original graph,
     but which share a synapse object with those which are, as well as the mappings from connected components to the
@@ -179,17 +158,18 @@ def _adjacencies_to_slice_clusters(adjacencies):
 
     This function is terrible.
 
-    Parameters
-    ----------
-    adjacencies : networkx.Graph
+    Args:
+        adjacencies(networkx.Graph): Graph where nodes are synapse slices and edges are spatial adjacencies
 
-    Returns
-    -------
-    list of tuple of (set, set)
+    Returns:
+        list: List whose items are a tuple of a set of slice IDs which form an object, and a set of existing synapse
+            object IDs associated with that set of slices
     """
-    cursor = connection.cursor()
+    if cursor is None:
+        cursor = connection.cursor()
+
     query, cursor_args = list_into_query('''
-            SELECT ss_so2.synapse_slice_id, ss_so2.synapse_object_id FROM synapse_slice_synapse_object ss_so
+            SELECT DISTINCT ss_so2.synapse_slice_id, ss_so2.synapse_object_id FROM synapse_slice_synapse_object ss_so
               INNER JOIN (VALUES {}) ss_interest (id)
                 ON ss_so.synapse_slice_id = ss_interest.id
               INNER JOIN synapse_slice_synapse_object ss_so2
@@ -221,24 +201,25 @@ def _adjacencies_to_slice_clusters(adjacencies):
     return out
 
 
-def _agglomerate_synapse_slices(slice_clusters):
+def _agglomerate_synapse_slices(slice_clusters, cursor=None):
     """
     - If a new synapse slice should belong to an existing synapse object, add it
     - If a new synapse slice bridges the gap between existing synapse objects, remap all slices belonging to the
     obsolete object
     - If a new synapse slice does not belong to an existing synapse object, create it
 
-    Parameters
-    ----------
-    slice_clusters : list of tuple of (set, set)
-        Graph containing information about the adjacencies between synapse slices, whose nodes are the integer IDs of
-        the synapse slices
+    Args:
+        slice_clusters(list): Each item of the list is a tuple of two sets. The first is a set of synapse slice IDs
+            which should combine into a single synapse object the second is a set of synapse object IDs already
+            associated with this slice set.
+        cursor(django.db.connection.cursor):
 
-    Returns
-    -------
-    dict
-        Dictionary mapping from synapse slices to synapse objects.
+    Returns:
+        dict: Mapping from synapse slice ID to synapse object ID
     """
+    if cursor is None:
+        cursor = connection.cursor()
+
     new_mappings = dict()
     unmapped_syn_slice_groups = []
     bulk_create_args = []
@@ -263,14 +244,24 @@ def _agglomerate_synapse_slices(slice_clusters):
           ON CONFLICT (synapse_slice_id)
             DO UPDATE SET synapse_object_id = EXCLUDED.synapse_object_id;
     """, new_mappings.items(), fmt='(%s, %s)')
-    cursor = connection.cursor()
     cursor.execute(query, cursor_args)
 
     return dict(new_mappings)
 
 
-def _delete_unused_synapse_objects():
-    cursor = connection.cursor()
+def _delete_unused_synapse_objects(cursor=None):
+    """
+    Delete any synapse objects not referred to by any synapse slice : synapse object mappings.
+
+    Args:
+        cursor(django.db.connection.cursor):
+
+    Returns:
+        list: IDs of deleted synapse objects
+    """
+    if cursor is None:
+        cursor = connection.cursor()
+
     cursor.execute('''
         DELETE FROM synapse_object so
           WHERE NOT EXISTS (
@@ -283,32 +274,42 @@ def _delete_unused_synapse_objects():
     return [item[0] for item in cursor.fetchall()]
 
 
+@api_view(['POST'])
 def agglomerate_synapse_slices(request, project_id=None):
     """
     POST request which agglomerates given synapse slices into synapse objects (including agglomerating with existing
     unspecified slices).
-
-    POST parameters:
-    synapse_slices[]: list of synapse slice IDs
-
-    Parameters
-    ----------
-    request
-    project_id
-
-    Returns
-    -------
-    dict
-        New mappings from synapse slice ID to synapse object ID.
+    ---
+    parameters:
+      - name: synapse_slices
+        description: List of synapse slice IDs to use as seeds for synapse object creation
+        type: array
+        items:
+          type: integer
+        required: false
+        paramType: form
+    type:
+      slice_object_mappings:
+        required: true
+        type: object
+        description: object whose keys are synapse slice IDs and values are synapse object IDs they now belong to
+      deleted_objects:
+        required: true
+        type: array
+        items:
+          type: integer
+        description: array of synapse object IDs deleted due to lack of synapse slices mapping to them.
     """
     synapse_slice_ids = get_request_list(request.POST, 'synapse_slices', tuple(), int)
 
+    cursor = connection.cursor()
+
     if synapse_slice_ids:
-        adjacencies = _get_synapse_slice_adjacencies(synapse_slice_ids)
-        ext_adjacencies = _adjacencies_to_slice_clusters(adjacencies)
-        new_mappings = _agglomerate_synapse_slices(ext_adjacencies)
+        adjacencies = _get_synapse_slice_adjacencies(synapse_slice_ids, cursor)
+        ext_adjacencies = _adjacencies_to_slice_clusters(adjacencies, cursor)
+        new_mappings = _agglomerate_synapse_slices(ext_adjacencies, cursor)
     else:
         new_mappings = dict()
 
-    deleted_objects = _delete_unused_synapse_objects()
+    deleted_objects = _delete_unused_synapse_objects(cursor)
     return JsonResponse({'slice_object_mappings': new_mappings, 'deleted_objects': deleted_objects})
