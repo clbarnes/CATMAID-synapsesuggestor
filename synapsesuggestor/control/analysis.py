@@ -243,5 +243,4 @@ def get_intersecting_connectors(request, project_id=None):
       WHERE relation.relation_name = ANY(ARRAY['presynaptic_to', 'postsynaptic_to']);
     ''', (offset_zs, resolution[2], offset_xs, offset_ys, resolution[0], resolution[1], obj_ids, project_id))
 
-    # todo: include treenodes (and skeletons?)
     return JsonResponse({'columns': columns, 'data': cursor.fetchall()})
