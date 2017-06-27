@@ -71,7 +71,7 @@ def get_most_recent_valid_workflows(request, project_id=None):
 def _get_valid_workflows(project_id, stack_id):
     columns = [
         'workflow_id', 'detection_algo_id', 'detection_algo_hash', 'detection_algo_date',
-        'project_workflow_id', 'association_algo_id', 'assocation_algo_hash', 'association_algo_id',
+        'project_workflow_id', 'association_algo_id', 'assocation_algo_hash', 'association_algo_date',
         'tile_height_px', 'tile_width_px'
     ]
 
