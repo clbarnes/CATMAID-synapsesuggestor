@@ -24,7 +24,7 @@ def get_workflow(request, project_id=None):
     detection_hash = request.GET.get('detection_hash')
 
     tiling = SynapseDetectionTiling.objects.get_or_create(
-        stack_id=stack_id, tile_height_px=tile_size if tile_size else 512, tile_width_px=tile_size
+        stack_id=stack_id, tile_height_px=int(tile_size) if tile_size else 512, tile_width_px=int(tile_size)
     )[0]
     detection_algorithm = SynapseDetectionAlgorithm.objects.get_or_create(hashcode=detection_hash)[0]
     # todo: deal with image store
