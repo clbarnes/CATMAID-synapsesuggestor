@@ -255,3 +255,70 @@ def get_intersecting_connectors(request, project_id=None):
     ))
 
     return JsonResponse({'columns': columns, 'data': cursor.fetchall()})
+
+
+@api_view(['GET'])
+def get_synapse_extents(request, project_id=None):
+    """
+    Given a set of synapse objects, and optional padding parameters, get the bounding cuboid of the synapse in stack
+    coordinates.
+    ---
+    parameters:
+      - name: synapse_object_ids
+        description: IDs of synapse objects to get 3D extents for
+        type: array
+        items:
+          type: integer
+        required: false
+        paramType: form
+      - name: z_padding
+        description: number of z slices to extend the top and bottom of the bounding box by (default 1)
+        type: integer
+        required: false
+        paramType: form
+      - name: xy_padding
+        description: number of pixels to extend the bounding box by in the xy plane (default 10)
+        type: integer
+        required: false
+        paramType: form
+    type:
+      object
+    """
+    # todo: test
+    syn_ids = get_request_list(request.GET, 'synapse_object_ids', tuple(), int)
+
+    if not syn_ids:
+        return JsonResponse({})
+
+    z_pad = int(request.GET.get('z_padding', 1))
+    xy_pad = int(request.GET.get('xy_padding', 10))
+
+    cursor = connection.cursor()
+    # could use ST_Extent, but would then have to interrogate WKT str to add padding
+    cursor.execute('''
+        SELECT ss_so.synapse_object_id, 
+            min(ST_XMin(ss.convex_hull_2d)) - %(xy_pad)s, max(ST_XMax(ss.convex_hull_2d)) + %(xy_pad)s,
+            min(ST_YMin(ss.convex_hull_2d)) - %(xy_pad)s, max(ST_YMax(ss.convex_hull_2d)) + %(xy_pad)s,
+            min(tile.z_tile_idx) - %(z_pad)s, max(tile.z_tile_idx) + %(z_pad)s
+          FROM synapse_slice_synapse_object ss_so
+          INNER JOIN synapse_slice ss 
+            ON ss_so.synapse_slice_id = ss.id
+          INNER JOIN synapse_detection_tile tile
+            ON ss.synapse_detection_tile_id = tile.id
+          WHERE ss_so.synapse_object_id = ANY(%(syn_ids)s::bigint[])
+          GROUP BY ss_so.id;
+    ''', {'z_pad': z_pad, 'xy_pad': xy_pad, 'syn_ids': syn_ids})
+
+    output = dict()
+
+    for syn_id, xmin, xmax, ymin, ymax, zmin, zmax in cursor.fetchall():
+        output[syn_id] = {
+            'xmin': int(xmin),
+            'xmax': int(xmax),
+            'ymin': int(ymin),
+            'ymax': int(ymax),
+            'zmin': int(zmin),
+            'zmax': int(zmax)
+        }
+
+    return JsonResponse(output)
