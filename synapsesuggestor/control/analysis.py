@@ -173,6 +173,12 @@ def get_intersecting_connectors(request, project_id=None):
             type: integer
         paramType: form
         required: false
+      - name: tolerance
+        description: > minimum XY distance, in project space, used to determine whether a connector edge is associated
+          with a synapse slice. Default 0 (geometric intersection).
+        type: float
+        required: false
+        paramType: form
     type:
       columns:
         type: array
@@ -198,6 +204,8 @@ def get_intersecting_connectors(request, project_id=None):
         'skeleton_id'
     ]
 
+    tolerance = int(request.POST.get('tolerance', 0))
+
     obj_ids = get_request_list(request.POST, 'synapse_object_ids', tuple(), int)
     if not obj_ids:
         return JsonResponse({'columns': columns, 'data': []})
@@ -212,7 +220,6 @@ def get_intersecting_connectors(request, project_id=None):
 
     offset_xs, offset_ys, offset_zs = translation / resolution
 
-    # todo: may need to do some explicit type conversions
     cursor.execute('''
       SELECT obj_edge.obj_id,
         c.id, c.location_x, c.location_y, c.location_z, c.confidence, c.user_id,
@@ -228,7 +235,7 @@ def get_intersecting_connectors(request, project_id=None):
             ON ss.synapse_detection_tile_id = tile.id
           INNER JOIN treenode_connector_edge tce
             ON (tile.z_tile_idx + %s) * %s BETWEEN ST_ZMin(tce.edge) AND ST_ZMax(tce.edge)
-            AND ST_Intersects(tce.edge, ST_TransScale(ss.convex_hull_2d, %s, %s, %s, %s))
+            AND ST_DWithin(tce.edge, ST_TransScale(ss.convex_hull_2d, %s, %s, %s, %s), %s)
           WHERE ss_so.synapse_object_id = ANY(%s::bigint[])
             AND tce.project_id = %s
       ) as obj_edge (obj_id, tce_id)
@@ -241,6 +248,10 @@ def get_intersecting_connectors(request, project_id=None):
       INNER JOIN treenode tn
         ON tc.treenode_id = tn.id
       WHERE relation.relation_name = ANY(ARRAY['presynaptic_to', 'postsynaptic_to']);
-    ''', (offset_zs, resolution[2], offset_xs, offset_ys, resolution[0], resolution[1], obj_ids, project_id))
+    ''', (
+        offset_zs, resolution[2],
+        offset_xs, offset_ys, resolution[0], resolution[1], tolerance,
+        obj_ids, project_id
+    ))
 
     return JsonResponse({'columns': columns, 'data': cursor.fetchall()})
