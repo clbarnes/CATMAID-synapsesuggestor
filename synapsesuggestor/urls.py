@@ -33,5 +33,6 @@ urlpatterns += [
 urlpatterns += [
     url(r'^analysis/(?P<project_id>\d+)/skeleton-synapses$', analysis.get_skeleton_synapses),
     url(r'^analysis/(?P<project_id>\d+)/intersecting-connectors$', analysis.get_intersecting_connectors),
-    url(r'^analysis/(?P<project_id>\d+)/workflow-info$', workflow.get_most_recent_valid_workflows)
+    url(r'^analysis/(?P<project_id>\d+)/workflow-info$', workflow.get_most_recent_valid_workflows),
+    url(r'^analysis/synapse-extents', analysis.get_synapse_extents),
 ]
