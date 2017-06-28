@@ -296,7 +296,7 @@ def get_synapse_extents(request, project_id=None):
     cursor = connection.cursor()
     # could use ST_Extent, but would then have to interrogate WKT str to add padding
     cursor.execute('''
-        SELECT ss_so.synapse_object_id, 
+        SELECT ss_so.synapse_object_id, array_agg(ss.id),
             min(ST_XMin(ss.convex_hull_2d)) - %(xy_pad)s, max(ST_XMax(ss.convex_hull_2d)) + %(xy_pad)s,
             min(ST_YMin(ss.convex_hull_2d)) - %(xy_pad)s, max(ST_YMax(ss.convex_hull_2d)) + %(xy_pad)s,
             min(tile.z_tile_idx) - %(z_pad)s, max(tile.z_tile_idx) + %(z_pad)s
@@ -306,19 +306,22 @@ def get_synapse_extents(request, project_id=None):
           INNER JOIN synapse_detection_tile tile
             ON ss.synapse_detection_tile_id = tile.id
           WHERE ss_so.synapse_object_id = ANY(%(syn_ids)s::bigint[])
-          GROUP BY ss_so.id;
+          GROUP BY ss_so.synapse_object_id;
     ''', {'z_pad': z_pad, 'xy_pad': xy_pad, 'syn_ids': syn_ids})
 
     output = dict()
 
-    for syn_id, xmin, xmax, ymin, ymax, zmin, zmax in cursor.fetchall():
+    for syn_id, slice_ids, xmin, xmax, ymin, ymax, zmin, zmax in cursor.fetchall():
         output[syn_id] = {
-            'xmin': int(xmin),
-            'xmax': int(xmax),
-            'ymin': int(ymin),
-            'ymax': int(ymax),
-            'zmin': int(zmin),
-            'zmax': int(zmax)
+            'synapse_slice_ids': list(slice_ids),
+            'extents': {
+                'xmin': int(xmin),
+                'xmax': int(xmax),
+                'ymin': int(ymin),
+                'ymax': int(ymax),
+                'zmin': int(zmin),
+                'zmax': int(zmax)
+            }
         }
 
     return JsonResponse(output)
