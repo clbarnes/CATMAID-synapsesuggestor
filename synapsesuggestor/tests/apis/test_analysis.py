@@ -135,3 +135,40 @@ class AnalysisApiTests(SynapseSuggestorTestCase):
         self.assertEqual(response_dict['connector_id'], tc_info['connector_id'])
         self.assertEqual(response_dict['treenode_id'], tc_info['treenode_id'])
         self.assertEqual(response_dict['skeleton_id'], tc_info['skeleton_id'])
+
+    def get_synapse_extents(self, synapse_object_ids=None, z_padding=None, xy_padding=None):
+        if synapse_object_ids is None:
+            synapse_object_ids = [self.test_syn_obj_id]
+
+        params = {'synapse_object_ids': list(synapse_object_ids)}
+
+        if z_padding is not None:
+            params['z_padding'] = z_padding
+        if xy_padding is not None:
+            params['xy_padding'] = xy_padding
+
+        response = self.client.get(URL_PREFIX + '/synapse-extents', params)
+        self.assertEqual(response.status_code, 200)
+        return json.loads(response.content.decode('utf-8'))
+
+    def test_synapse_extents_successful(self):
+        z_padding = 0
+        xy_padding = 0
+
+        parsed_response = self.get_synapse_extents([self.test_syn_obj_id], z_padding, xy_padding)
+
+        expected_response = {
+            str(self.test_syn_obj_id): {
+                'synapse_slice_ids': [2, 3],
+                'extents': {
+                    'xmin': 0,
+                    'xmax': 2,
+                    'ymin': 0,
+                    'ymax': 1,
+                    'zmin': 0,
+                    'zmax': 0
+                }
+            }
+        }
+
+        self.assertDictEqual(expected_response, parsed_response)
