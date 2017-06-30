@@ -290,8 +290,8 @@ def get_synapse_extents(request, project_id=None):
     if not syn_ids:
         return JsonResponse({})
 
-    z_pad = int(request.GET.get('z_padding', 1))
-    xy_pad = int(request.GET.get('xy_padding', 10))
+    z_pad = int(request.GET.get('z_padding', 0))
+    xy_pad = int(request.GET.get('xy_padding', 0))
 
     cursor = connection.cursor()
     # could use ST_Extent, but would then have to interrogate WKT str to add padding
