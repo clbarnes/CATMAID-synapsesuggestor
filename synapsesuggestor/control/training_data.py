@@ -66,8 +66,7 @@ def treenodes_by_label(request, project_id=None):
             ON tci.treenode_id = t.id
           WHERE ci.project_id = %s
             AND tci.relation_id = %s
-            AND ci.name = ANY(%s)
-          GROUP BY ci.name;
+            AND ci.name = ANY(%s);
     """, (project_id, labeled_as_relation.id, labels))
 
     return JsonResponse({'columns': columns, 'data': cursor.fetchall()})
