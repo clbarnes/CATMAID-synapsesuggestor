@@ -3,6 +3,9 @@ import logging
 from string import Formatter
 
 from six import string_types
+import numpy as np
+
+from django.db import connection
 
 from synapsesuggestor.models import ProjectSynapseSuggestionWorkflow
 
@@ -86,6 +89,44 @@ def list_into_query_multi(query, fmt=None, **kwargs):
 
     logger.debug('Preparing SQL query for form \n%s \nwith arguments \n%s', final_query, str(final_args))
     return final_query, tuple(final_args)
+
+
+def get_translation_resolution(project_id, ssw_id, cursor=None):
+    """
+    Return the translation and resolution for converting between stack and project coordinates.
+
+    Args:
+      project_id(int):
+      ssw_id(int): Synapse suggestion workflow ID
+      cursor(django.db.connection.cursor, optional):  (Default value = None)
+
+    Returns:
+      tuple:  (numpy.ndarray, numpy.ndarray)
+        Translation is the location of the stack origin, in project space
+        Resolution is the size of a stack pixel, in project space
+    """
+    if cursor is None:
+        cursor = connection.cursor()
+
+    cursor.execute('''
+        SELECT 
+          (ps.translation).x, (ps.translation).y, (ps.translation).z, 
+          (stack.resolution).x, (stack.resolution).y, (stack.resolution).z  
+        FROM synapse_suggestion_workflow ssw
+          INNER JOIN synapse_detection_tiling tiling
+            ON ssw.synapse_detection_tiling_id = tiling.id
+          INNER JOIN stack
+            ON tiling.stack_id = stack.id
+          INNER JOIN project_stack ps
+            ON ps.stack_id = stack.id
+          WHERE ps.project_id = %s
+            AND ssw.id = %s
+          LIMIT 1;
+    ''', (project_id, ssw_id))
+
+    trans_res = cursor.fetchone()
+
+    return np.array(trans_res[:3]), np.array(trans_res[-3:])
 
 
 # def get_or_create_algo_version(request, project_id=None):

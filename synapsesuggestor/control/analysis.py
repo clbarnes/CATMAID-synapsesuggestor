@@ -11,7 +11,7 @@ from rest_framework.decorators import api_view
 
 from catmaid.control.common import get_request_list
 
-from synapsesuggestor.control.common import get_most_recent_project_SS_workflow
+from synapsesuggestor.control.common import get_most_recent_project_SS_workflow, get_translation_resolution
 from synapsesuggestor.models import ProjectSynapseSuggestionWorkflow, SynapseSuggestionWorkflow
 
 
@@ -117,44 +117,6 @@ def get_skeleton_synapses(request, project_id=None):
     return JsonResponse({'columns': columns, 'data': cursor.fetchall()})
 
 
-def _get_translation_resolution(project_id, ssw_id, cursor=None):
-    """
-    Return the translation and resolution for converting between stack and project coordinates.
-
-    Args:
-      project_id(int):
-      ssw_id(int): Synapse suggestion workflow ID
-      cursor(django.db.connection.cursor, optional):  (Default value = None)
-
-    Returns:
-      tuple:  (numpy.ndarray, numpy.ndarray)
-        Translation is the location of the stack origin, in project space
-        Resolution is the size of a stack pixel, in project space
-    """
-    if cursor is None:
-        cursor = connection.cursor()
-
-    cursor.execute('''
-        SELECT 
-          (ps.translation).x, (ps.translation).y, (ps.translation).z, 
-          (stack.resolution).x, (stack.resolution).y, (stack.resolution).z  
-        FROM synapse_suggestion_workflow ssw
-          INNER JOIN synapse_detection_tiling tiling
-            ON ssw.synapse_detection_tiling_id = tiling.id
-          INNER JOIN stack
-            ON tiling.stack_id = stack.id
-          INNER JOIN project_stack ps
-            ON ps.stack_id = stack.id
-          WHERE ps.project_id = %s
-            AND ssw.id = %s
-          LIMIT 1;
-    ''', (project_id, ssw_id))
-
-    trans_res = cursor.fetchone()
-
-    return np.array(trans_res[:3]), np.array(trans_res[-3:])
-
-
 @api_view(['POST'])
 def get_intersecting_connectors(request, project_id=None):
     """
@@ -216,7 +178,7 @@ def get_intersecting_connectors(request, project_id=None):
 
     cursor = connection.cursor()
 
-    translation, resolution = _get_translation_resolution(project_id, ssw_id, cursor)
+    translation, resolution = get_translation_resolution(project_id, ssw_id, cursor)
 
     offset_xs, offset_ys, offset_zs = translation / resolution
 
