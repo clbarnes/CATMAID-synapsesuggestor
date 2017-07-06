@@ -20,28 +20,12 @@ def sample_treenodes(request, project_id):
 
     cursor = connection.cursor()
     cursor.execute('''
-        SELECT COUNT(*) FROM treenode tn WHERE tn.project_id = %s;
-    ''', (project_id, ))
-    total = cursor.fetchone()[0]
-
-    assert count < total, \
-        'Too many ({}) treenodes requested, only {} exist in project {}'.format(count, total, project_id)
-
-    # Do most of the cutting down in SQL, but this doesn't guarantee the number of returned items, so get a larger
-    # sample than required, then pare it down further in python
-    leeway_factor = 3
-    cursor.execute('''
-        SELECT tn2.id, tn2.location_x, tn2.location_y, tn2.location_z FROM (
-            SELECT * FROM treenode tn1
-              WHERE tn1.project_id = %s
-          ) tn2 (id, location_x, location_y, location_z)
-          TABLESAMPLE BERNOULLI (%s)
-            REPEATABLE (%s);
-    ''', (project_id, min((count*leeway_factor*100)/total, 100), seed))
-
+        SELECT id, location_x, location_y, location_z FROM treenode WHERE tn.project_id = %s;
+    ''', (project_id))
     rows = cursor.fetchall()
+
     sampler = random.Random(seed)
-    sample = sampler.sample(rows, count)
+    sample = sampler.sample(rows, min(count, len(rows)))
 
     return JsonResponse({
         'seed': seed,
