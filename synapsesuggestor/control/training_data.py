@@ -20,7 +20,7 @@ def sample_treenodes(request, project_id):
 
     cursor = connection.cursor()
     cursor.execute('''
-        SELECT id, location_x, location_y, location_z FROM treenode WHERE tn.project_id = %s;
+        SELECT id, location_x, location_y, location_z FROM treenode WHERE project_id = %s;
     ''', (project_id))
     rows = cursor.fetchall()
 
