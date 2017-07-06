@@ -51,7 +51,7 @@ def sample_treenodes(request, project_id):
 
 
 @api_view(['GET'])
-def nodes_by_label(request, project_id=None):
+def treenodes_by_label(request, project_id=None):
     """Return all treenodes in the project associated with the given tags.
     ---
     parameters:

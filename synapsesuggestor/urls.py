@@ -41,5 +41,5 @@ urlpatterns += [
 
 urlpatterns += [
     url(r'^training-data/(?P<project_id>\d+)/treenodes/sample$', training_data.sample_treenodes),
-    url(r'^training-data/(?P<project_id>\d+)/treenodes/label$', training_data.nodes_by_label)
+    url(r'^training-data/(?P<project_id>\d+)/treenodes/label$', training_data.treenodes_by_label)
 ]
