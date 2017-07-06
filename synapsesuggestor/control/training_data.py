@@ -34,7 +34,7 @@ def sample_treenodes(request, project_id):
         SELECT tn2.id, tn2.location_x, tn2.location_y, tn2.location_z FROM (
             SELECT * FROM treenode tn1
               WHERE tn1.project_id = %s
-          ) tn2
+          ) tn2 (id, location_x, location_y, location_z)
           TABLESAMPLE BERNOULLI (%s)
             REPEATABLE (%s);
     ''', (project_id, min((count*leeway_factor*100)/total, 100), seed))
