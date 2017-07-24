@@ -60,27 +60,27 @@ def get_project_workflow(request, project_id=None):
 
 
 @api_view(['GET'])
-def get_most_recent_valid_workflows(request, project_id=None):
+def get_workflow_info(request, project_id=None):
     stack_id = int(request.GET['stack_id'])
 
     workflows_info = _get_valid_workflows(project_id, stack_id)
 
-    return JsonResponse(workflows_info[0])
+    return JsonResponse({'workflows': workflows_info})
 
 
 def _get_valid_workflows(project_id, stack_id):
     columns = [
-        'workflow_id', 'detection_algo_id', 'detection_algo_hash', 'detection_algo_date',
-        'project_workflow_id', 'association_algo_id', 'assocation_algo_hash', 'association_algo_date',
+        'workflow_id', 'detection_algo_id', 'detection_algo_hash', 'detection_algo_date', 'detection_algo_notes'
+        'project_workflow_id', 'association_algo_id', 'assocation_algo_hash', 'association_algo_date', 'association_algo_notes'
         'tile_height_px', 'tile_width_px'
     ]
 
     cursor = connection.cursor()
 
     cursor.execute('''
-        SELECT 
-          ssw.id, sda.id, sda.hashcode, sda.date, 
-          pssw.id, saa.id, saa.hashcode, saa.date, 
+        SELECT DISTINCT
+          ssw.id, sda.id, sda.hashcode, sda.date, sda.notes,
+          pssw.id, saa.id, saa.hashcode, saa.date, saa.notes,
           tiling.tile_height_px, tiling.tile_width_px
           FROM project_synapse_suggestion_workflow pssw
           INNER JOIN synapse_association_algorithm saa
@@ -103,3 +103,31 @@ def _get_valid_workflows(project_id, stack_id):
         output.append(dict(zip(columns, row)))
 
     return output
+
+
+@api_view(['GET'])
+def get_valid_algorithms(project_id, stack_id):
+    # todo: test
+
+    info = _get_valid_workflows(project_id, stack_id)
+
+    detection_algos = set()
+    association_algos = set()
+    valid_pairs = set()
+
+    for row in info:
+        detection_algos.add((row['detection_algo_hash'], row['detection_algo_date'], row['detection_algo_notes']))
+        association_algos.add((row['association_algo_hash'], row['association_algo_date'], row['association_algo_notes']))
+        valid_pairs.add((row['detection_algo_hash'], row['association_algo_hash']))
+
+    return JsonResponse({
+        'detection_algos': [
+            {'hashcode': hashcode, 'created': created, 'notes': notes}
+            for hashcode, created, notes in sorted(detection_algos, key=lambda x: x[1], reverse=True)
+        ],
+        'association_algos': [
+            {'hashcode': hashcode, 'created': created, 'notes': notes}
+            for hashcode, created, notes in sorted(association_algos, key=lambda x: x[1], reverse=True)
+        ],
+        'detection_association_pairs': list(valid_pairs)
+    })
