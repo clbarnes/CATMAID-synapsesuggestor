@@ -20,13 +20,19 @@ def get_workflow(request, project_id=None):
     Get or create all of the models required to establish a workflow.
     """
     stack_id = int(request.GET['stack_id'])
+    detection_hash = request.GET['detection_hash']
     tile_size = request.GET.get('tile_size')
-    detection_hash = request.GET.get('detection_hash')
+    notes = request.GET.get('algo_notes')
 
     tiling = SynapseDetectionTiling.objects.get_or_create(
         stack_id=stack_id, tile_height_px=int(tile_size) if tile_size else 512, tile_width_px=int(tile_size)
     )[0]
-    detection_algorithm = SynapseDetectionAlgorithm.objects.get_or_create(hashcode=detection_hash)[0]
+    detection_algorithm, created = SynapseDetectionAlgorithm.objects.get_or_create(hashcode=detection_hash)
+
+    if created and notes:
+        detection_algorithm.notes = notes
+        detection_algorithm.save()
+
     # todo: deal with image store
     workflow = SynapseSuggestionWorkflow.objects.get_or_create(
         synapse_detection_tiling=tiling, synapse_detection_algorithm=detection_algorithm
@@ -45,9 +51,14 @@ def get_project_workflow(request, project_id=None):
     Get or create all of the models required to establish a project workflow.
     """
     workflow_id = request.GET.get('workflow_id')
-    association_hash = request.GET.get('association_hash')
+    association_hash = request.GET['association_hash']
+    notes = request.GET.get('algo_notes')
 
-    association_algorithm = SynapseAssociationAlgorithm.objects.get_or_create(hashcode=association_hash)[0]
+    association_algorithm, created = SynapseAssociationAlgorithm.objects.get_or_create(hashcode=association_hash)
+    if created and notes:
+        association_algorithm.notes = notes
+        association_algorithm.save()
+
     project_workflow = ProjectSynapseSuggestionWorkflow.objects.get_or_create(
         synapse_suggestion_workflow_id=workflow_id, project_id=project_id,
         synapse_association_algorithm=association_algorithm
@@ -60,7 +71,7 @@ def get_project_workflow(request, project_id=None):
 
 
 @api_view(['GET'])
-def get_workflow_info(request, project_id=None):
+def get_workflows_info(request, project_id=None):
     stack_id = int(request.GET['stack_id'])
 
     workflows_info = _get_valid_workflows(project_id, stack_id)
@@ -106,30 +117,30 @@ def _get_valid_workflows(project_id, stack_id):
 
     return output
 
-
-@api_view(['GET'])
-def get_valid_algorithms(project_id, stack_id):
-    # todo: test
-
-    info = _get_valid_workflows(project_id, stack_id)
-
-    detection_algos = set()
-    association_algos = set()
-    valid_pairs = set()
-
-    for row in info:
-        detection_algos.add((row['detection_algo_hash'], row['detection_algo_date'], row['detection_algo_notes']))
-        association_algos.add((row['association_algo_hash'], row['association_algo_date'], row['association_algo_notes']))
-        valid_pairs.add((row['detection_algo_hash'], row['association_algo_hash']))
-
-    return JsonResponse({
-        'detection_algos': [
-            {'hashcode': hashcode, 'created': created, 'notes': notes}
-            for hashcode, created, notes in sorted(detection_algos, key=lambda x: x[1], reverse=True)
-        ],
-        'association_algos': [
-            {'hashcode': hashcode, 'created': created, 'notes': notes}
-            for hashcode, created, notes in sorted(association_algos, key=lambda x: x[1], reverse=True)
-        ],
-        'detection_association_pairs': list(valid_pairs)
-    })
+#
+# @api_view(['GET'])
+# def get_valid_algorithms(project_id, stack_id):
+#     # todo: test
+#
+#     info = _get_valid_workflows(project_id, stack_id)
+#
+#     detection_algos = set()
+#     association_algos = set()
+#     valid_pairs = set()
+#
+#     for row in info:
+#         detection_algos.add((row['detection_algo_hash'], row['detection_algo_date'], row['detection_algo_notes']))
+#         association_algos.add((row['association_algo_hash'], row['association_algo_date'], row['association_algo_notes']))
+#         valid_pairs.add((row['detection_algo_hash'], row['association_algo_hash']))
+#
+#     return JsonResponse({
+#         'detection_algos': [
+#             {'hashcode': hashcode, 'created': created, 'notes': notes}
+#             for hashcode, created, notes in sorted(detection_algos, key=lambda x: x[1], reverse=True)
+#         ],
+#         'association_algos': [
+#             {'hashcode': hashcode, 'created': created, 'notes': notes}
+#             for hashcode, created, notes in sorted(association_algos, key=lambda x: x[1], reverse=True)
+#         ],
+#         'detection_association_pairs': list(valid_pairs)
+#     })
