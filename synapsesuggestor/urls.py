@@ -28,18 +28,12 @@ urlpatterns += [
     url(r'^treenode-association/(?P<project_id>\d+)/workflow', workflow.get_project_workflow),
 ]
 
-# algorithms endpoints
-
-urlpatterns += [
-    url(r'^algorithms/(?P<project_id>\d+)$', node_assoc.get_treenode_associations),
-]
-
 # analysis endpoints
 
 urlpatterns += [
     url(r'^analysis/(?P<project_id>\d+)/skeleton-synapses$', analysis.get_skeleton_synapses),
     url(r'^analysis/(?P<project_id>\d+)/intersecting-connectors$', analysis.get_intersecting_connectors),
-    url(r'^analysis/(?P<project_id>\d+)/workflow-info$', workflow.get_workflow_info),
+    url(r'^analysis/(?P<project_id>\d+)/workflow-info$', workflow.get_workflows_info),
     url(r'^analysis/synapse-extents', analysis.get_synapse_extents),
 ]
 
