@@ -70,8 +70,10 @@ def get_workflow_info(request, project_id=None):
 
 def _get_valid_workflows(project_id, stack_id):
     columns = [
-        'workflow_id', 'detection_algo_id', 'detection_algo_hash', 'detection_algo_date', 'detection_algo_notes'
-        'project_workflow_id', 'association_algo_id', 'assocation_algo_hash', 'association_algo_date', 'association_algo_notes'
+        'workflow_id', 'detection_algo_id', 'detection_algo_hash', 'detection_algo_date',
+        'detection_algo_notes',
+        'project_workflow_id', 'association_algo_id', 'assocation_algo_hash', 'association_algo_date',
+        'association_algo_notes',
         'tile_height_px', 'tile_width_px'
     ]
 
