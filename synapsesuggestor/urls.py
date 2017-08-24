@@ -24,6 +24,7 @@ urlpatterns += [
 
 urlpatterns += [
     url(r'^treenode-association/(?P<project_id>\d+)/get$', node_assoc.get_treenode_associations),
+    url(r'^treenode-association/(?P<project_id>\d+)/get-distance$', node_assoc.get_synapse_slices_near_skeletons),
     url(r'^treenode-association/(?P<project_id>\d+)/add$', node_assoc.add_treenode_synapse_associations),
     url(r'^treenode-association/(?P<project_id>\d+)/workflow', workflow.get_project_workflow),
 ]
