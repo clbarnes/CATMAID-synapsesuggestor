@@ -157,6 +157,20 @@ def get_translation_resolution(project_id, ssw_id, cursor=None):
 #     return JsonResponse(data)
 
 
+def get_project_SS_workflow(project_id, ssw_id=None):
+    """
+    Given a project ID, return a ProjectSynapseSuggestionWorkflow object.
+
+    If ssw_id is given, return the PSSW associated with the project and that SSW. If ssw_id is not given,
+    return the most recent PSSW associated with the project.
+    """
+    if ssw_id is None:
+        return get_most_recent_project_SS_workflow(project_id)
+    else:
+        return ProjectSynapseSuggestionWorkflow.objects.get(synapse_suggestion_workflow_id=ssw_id,
+                                                            project_id=project_id)
+
+
 def get_most_recent_project_SS_workflow(project_id):
     """Given a project ID, return the ProjectSynapseSuggestionWorkflow row most recently created in that project"""
     return ProjectSynapseSuggestionWorkflow.objects.filter(project_id=project_id).order_by('-created').first()
