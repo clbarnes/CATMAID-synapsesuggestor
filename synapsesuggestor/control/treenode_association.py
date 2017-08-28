@@ -132,7 +132,7 @@ def get_synapse_slices_near_skeletons(request, project_id=None):
         description: distance, in nm, within which to find synapses
     """
     skel_id = int(request.GET['skid'])
-    pssw_id = int(request.GET.get('workflow_id', get_most_recent_project_SS_workflow(project_id).id))
+    pssw_id = int(request.GET.get('project_workflow_id', get_most_recent_project_SS_workflow(project_id).id))
     distance = float(request.GET.get('distance', 0))
     dimensions = 2  # int(request.GET.get('dimensions', 2))
 
