@@ -92,7 +92,8 @@ def get_treenode_associations(request, project_id=None):
     cursor = connection.cursor()
 
     cursor.execute('''
-        SELECT sstn.treenode_id, ssso.synapse_object_id, sum(sstn.contact_px) FROM synapse_slice_treenode sstn
+        SELECT sstn.treenode_id, ssso.synapse_object_id, sum(sstn.contact_px)
+          FROM synapse_slice_treenode sstn
           INNER JOIN project_synapse_suggestion_workflow pssw
             ON sstn.project_synapse_suggestion_workflow_id = pssw.id
           INNER JOIN synapse_slice_synapse_object ssso
@@ -106,11 +107,78 @@ def get_treenode_associations(request, project_id=None):
 
     return JsonResponse(cursor.fetchall(), safe=False)
 
+# @api_view(['GET'])
+# def get_synapses_for_review(request, project_id=None):
+#     skel_id = int(request.GET['skid'])
+#     pssw_id = int(request.GET.get(
+#         'project_workflow_id', get_most_recent_project_SS_workflow(project_id).id
+#     ))
+#
+#     cursor = connection.cursor()
+#     ssw_id = ProjectSynapseSuggestionWorkflow.objects.get(id=pssw_id).synapse_suggestion_workflow_id
+#     translation, resolution = get_translation_resolution(project_id, ssw_id, cursor)
+#
+#     cursor.execute('''
+#         SELECT sstn.treenode_id, ssso.synapse_object_id,
+#           ST_Distance(ST_MakePoint((tn.location_x / %s) - %s, (tn.location_y / %s) - %s), ss.convex_hull_2d)
+#         FROM synapse_slice_treenode sstn
+#         INNER JOIN synapse_slice ss
+#           ON sstn.synapse_slice_id = ss.id
+#         INNER JOIN project_synapse_suggestion_workflow pssw
+#           ON sstn.project_synapse_suggestion_workflow_id = pssw.id
+#         INNER JOIN synapse_slice_synapse_object ssso
+#           ON sstn.synapse_slice_id = ssso.synapse_slice_id
+#         INNER JOIN treenode tn
+#           ON sstn.treenode_id = tn.id
+#         WHERE tn.skeleton_id = %s
+#           AND pssw.id = %s
+#         GROUP BY sstn.treenode_id, ssso.synapse_object_id;
+#     ''', (resolution[0], translation[0], resolution[1], translation[1], skel_id, pssw_id))
+
+
+def get_synapse_objects_info(translation, resolution, synapse_object_ids, cursor=None):
+    if cursor is None:
+        cursor = connection.cursor()
+
+    cursor.execute('''
+        SELECT combined.so_id, combined.ss_ids, combined.comb_geom
+        FROM (SELECT 
+          three_d.so_id AS so_id, 
+          array_agg(three_d.ss_id) AS ss_ids, 
+          ST_3DUnion(three_d.ss_geom3d) AS comb_geom
+          FROM (SELECT 
+            ss_so.synapse_object_id AS so_id,
+            ss.id AS ss_id,
+            ST_Extrude(
+              ST_Translate(
+                ST_Force_3D(
+                  ST_Scale(
+                    ss.convex_hull_2d, %s, %s
+                  )
+                ), %s, %s, %s + tile.z_tile_idx * %s
+              ), 0, 0, %s
+            ) AS ss_geom3d
+          FROM synapse_slice_synapse_object ss_so
+          INNER JOIN synapse_slice ss
+            ON ss_so.synapse_slice_id = ss.id
+          INNER JOIN synapse_detection_tile tile
+            ON ss.synapse_detection_tile_id = tile.id
+          WHERE ss_so.id = ANY(%s)) three_d
+          GROUP BY three_d.so_id) combined
+    ''',
+       (
+           resolution[0], resolution[1],
+           translation[0], translation[1], translation[2], resolution[2],
+           synapse_object_ids
+       )
+    )
+
 
 @api_view(['GET'])
 def get_synapse_slices_near_skeletons(request, project_id=None):
     """
-    Find synapse slices which are within a given distance of a particular skeleton.
+    Find synapse slices which are within a given distance of a particular skeleton, or which are from the same
+    synapse object and in the same z-plane as a synapse slice near the skeleton.
 
     Returns {columns: [...], data: [[...], ...]}
 
