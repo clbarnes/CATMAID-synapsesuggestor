@@ -166,7 +166,7 @@ def get_intersecting_connectors(request, project_id=None):
         'skeleton_id'
     ]
 
-    tolerance = int(request.POST.get('tolerance', 0))
+    tolerance = float(request.POST.get('tolerance', 0))
 
     obj_ids = get_request_list(request.POST, 'synapse_object_ids', tuple(), int)
     if not obj_ids:
