@@ -19,19 +19,13 @@ dictionary. JavaScript files go into the 'catmaid' entry of the ``JAVASCRIPT``
 dictonary at the end of this file.
 """
 
-import six
 from collections import OrderedDict
-
-CATMAID_IMPORTABLE = True
-
-STYLESHEETS = OrderedDict()
 
 JAVASCRIPT = OrderedDict()
 
 JAVASCRIPT['synapsesuggestor'] = {
     'source_filenames': (
-        'synapsesuggestor/js/widgets/ss_test.js',
-        'synapsesuggestor/js/widgets/ss_test_catmaid.js'
+        'synapsesuggestor/js/widgets/synapse-detection-table.js',
     ),
     'output_filename': 'js/synapsesuggestor.js'
 }
