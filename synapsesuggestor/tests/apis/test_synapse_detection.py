@@ -7,7 +7,7 @@ from six import assertCountEqual
 from synapsesuggestor.models import SynapseSliceSynapseObject, SynapseObject, SynapseSlice
 from synapsesuggestor.tests.common import SynapseSuggestorTestCase
 
-URL_PREFIX = '/synapsesuggestor/synapse-detection'
+URL_PREFIX = '/ext/synapsesuggestor/synapse-detection'
 
 
 class SynapseDetectionApiTests(SynapseSuggestorTestCase):
