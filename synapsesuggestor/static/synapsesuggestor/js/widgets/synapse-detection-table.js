@@ -6,6 +6,7 @@
   "use strict";
 
   var CACHE_TIMEOUT = 30*60*1000;  // 30 minutes
+  var URL_BASE = '/ext/synapsesuggestor';
 
   var SynapseDetectionTable = function() {
     this.widgetID = this.registerInstance();
@@ -344,7 +345,7 @@
     } else {
       var self = this;
       var stackId = project.getStackViewers()[0].primaryStack.id;
-      return CATMAID.fetch(`synapsesuggestor/analysis/${project.id}/workflow-info`, 'GET', {stack_id: stackId})
+      return CATMAID.fetch(`${URL_BASE}/analysis/${project.id}/workflow-info`, 'GET', {stack_id: stackId})
         .then(function(response) {
           self.workflowInfoOptions = response.workflows;
           self.workflowInfo = self.workflowInfo || response.workflows[0];
@@ -705,7 +706,7 @@
     }
 
     return CATMAID.fetch(
-      `synapsesuggestor/analysis/${project.id}/skeleton-synapses`, 'GET',
+      `${URL_BASE}/analysis/${project.id}/skeleton-synapses`, 'GET',
       {skeleton_id: skelID, workflow_id: self.workflowInfo.workflow_id}
       ).then(function(response){
         return response.data.reduce(function (obj, responseRow) {
@@ -730,7 +731,7 @@
       }).then(function (rowsObj) {
         var tolerance = Number(document.getElementById(self.idPrefix + 'tolerance').value);
         return CATMAID.fetch(
-          `synapsesuggestor/analysis/${project.id}/intersecting-connectors`, 'POST',
+          `${URL_BASE}/analysis/${project.id}/intersecting-connectors`, 'POST',
           {workflow_id: self.workflowInfo.workflow_id, synapse_object_ids: Object.keys(rowsObj), tolerance: tolerance}
         ).then(function(response) {
           for (var responseRow of response.data) {
