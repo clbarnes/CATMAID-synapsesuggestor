@@ -24,7 +24,7 @@ before_install:
   - pip install coveralls
   # setup CATMAID
   # todo: base on catmaid master
-  - git clone -b features/1524-hdf5-stack-upload https://github.com/clbarnes/CATMAID.git $CATMAID_DIR
+  - git clone -b features/1637-pipeline-extensions https://github.com/clbarnes/CATMAID.git $CATMAID_DIR
   - cd $CATMAID_DIR
   - travis_retry sudo apt-get install -qq $(< packagelist-ubuntu-14.04-apt.txt)
   - travis_retry python -m pip install -U pip
@@ -52,7 +52,6 @@ before_install:
   # Show full front-end errors by default
   - echo "EXPAND_FRONTEND_ERRORS = True" >> projects/mysite/settings.py
   - echo "INSTALLED_APPS += ('synapsesuggestor.apps.SynapsesuggestorConfig', )" >> projects/mysite/settings.py
-  - echo "urlpatterns += [url(r'^synapsesuggestor/', include('synapsesuggestor.urls'))]" >> projects/mysite/urls.py
   - cat projects/mysite/settings.py
   - cd $CATMAID_DIR/django/projects
 install:
