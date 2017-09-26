@@ -1011,74 +1011,104 @@
           saveAs(new Blob([JSON.stringify(analysisResults, null, 2)], {type: 'text/json'}), 'analysisresults.json');
         }
 
-        // in px
-        var margins = {
-          top: 20,
-          left: 70,
-          bottom: 70,
-          right: 20
-        };
+        var precisionRecall = analysisResults.reduce(
+          function(accumulator, currentValue){
+            accumulator.y.push(currentValue.detectionPrecision);
+            accumulator.x.push(currentValue.detectionRecall);
+            return accumulator;
+          },
+          {y: [], x: [], type: 'lines+markers'});
 
-        var $container = $(container);
+        Plotly.newPlot(
+          container,
+          [precisionRecall],
+          {
+            title: title,
+            xaxis: {
+              title: 'recall',
+              showgrid: true,
+              zeroline: true,
+              range: [0, 1],
+              showspikes: true
+            },
+            yaxis: {
+              title: 'precision',
+              showgrid: true,
+              zeroline: true,
+              range: [0, 1],
+              showspikes: true
+            }
+          }
+        );
 
-        var h = $container.height() - margins.top - margins.bottom;
-        var w = $container.width() - margins.left - margins.right;
-
-        var svg = d3.select(container)
-          .append('svg')
-          .style('width', '100%')
-          .style('height', '100%');
-
-        var xScale = d3.scale.linear()
-          .domain([0, 1])
-          .rangeRound([margins.left, container.offsetWidth - margins.right]);
-
-        var yScale = d3.scale.linear()
-          .domain([0, 1])
-          .rangeRound([container.offsetHeight - margins.bottom, margins.top]);
-
-        // x axis
-        svg.append('g')
-          .call(
-            d3.svg.axis()
-              .scale(xScale)
-              .orient('bottom')
-          )
-          .attr("transform", `translate(0, ${yScale(0)})`);
-
-        svg.append('text')
-          .attr('x', xScale(0.5))
-          .attr('y', yScale(-0.1))
-          .style('text-anchor', 'middle')
-          .style('alignment-baseline', 'central')
-          .text('recall');
-
-        // y axis
-        svg.append('g')
-          .call(
-            d3.svg.axis()
-              .scale(yScale)
-              .orient('left')
-          )
-          .attr("transform", `translate(${xScale(0)}, 0)`);
-
-        svg.append('text')
-          .attr("transform", `translate(${xScale(-0.1)}, ${yScale(0.5)})rotate(-90)`)
-          .style('text-anchor', 'middle')
-          .style('alignment-baseline', 'central')
-          .text('precision');
-
-        var line = d3.svg.line()
-          .x(function(d){return xScale(d.detectionRecall);})
-          .y(function(d){return yScale(d.detectionPrecision);});
-
-        svg.append('path')
-          .attr('fill', 'none')
-          .attr("stroke", "blue")
-          .attr("stroke-linejoin", "round")
-          .attr("stroke-linecap", "round")
-          .attr("stroke-width", 2)
-          .attr('d', line(analysisResults));
+        // // in px
+        // var margins = {
+        //   top: 20,
+        //   left: 70,
+        //   bottom: 70,
+        //   right: 20
+        // };
+        //
+        // var $container = $(container);
+        //
+        // var h = $container.height() - margins.top - margins.bottom;
+        // var w = $container.width() - margins.left - margins.right;
+        //
+        // var svg = d3.select(container)
+        //   .append('svg')
+        //   .style('width', '100%')
+        //   .style('height', '100%');
+        //
+        // var xScale = d3.scale.linear()
+        //   .domain([0, 1])
+        //   .rangeRound([margins.left, container.offsetWidth - margins.right]);
+        //
+        // var yScale = d3.scale.linear()
+        //   .domain([0, 1])
+        //   .rangeRound([container.offsetHeight - margins.bottom, margins.top]);
+        //
+        // // x axis
+        // svg.append('g')
+        //   .call(
+        //     d3.svg.axis()
+        //       .scale(xScale)
+        //       .orient('bottom')
+        //   )
+        //   .attr("transform", `translate(0, ${yScale(0)})`);
+        //
+        // svg.append('text')
+        //   .attr('x', xScale(0.5))
+        //   .attr('y', yScale(-0.1))
+        //   .style('text-anchor', 'middle')
+        //   .style('alignment-baseline', 'central')
+        //   .text('recall');
+        //
+        // // y axis
+        // svg.append('g')
+        //   .call(
+        //     d3.svg.axis()
+        //       .scale(yScale)
+        //       .orient('left')
+        //   )
+        //   .attr("transform", `translate(${xScale(0)}, 0)`);
+        //
+        // svg.append('text')
+        //   .attr("transform", `translate(${xScale(-0.1)}, ${yScale(0.5)})rotate(-90)`)
+        //   .style('text-anchor', 'middle')
+        //   .style('alignment-baseline', 'central')
+        //   .text('precision');
+        //
+        // var line = d3.svg.line()
+        //   .x(function(d){return xScale(d.detectionRecall);})
+        //   .y(function(d){return yScale(d.detectionPrecision);});
+        //
+        // svg.append('path')
+        //   .attr('fill', 'none')
+        //   .attr("stroke", "blue")
+        //   .attr("stroke-linejoin", "round")
+        //   .attr("stroke-linecap", "round")
+        //   .attr("stroke-width", 2)
+        //   .attr('d', line(analysisResults));
       });
   };
 
