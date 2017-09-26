@@ -6,7 +6,7 @@ from six import assertCountEqual
 from synapsesuggestor.tests.common import SynapseSuggestorTestCase
 
 
-URL_PREFIX = '/synapsesuggestor/treenode-association'
+URL_PREFIX = '/ext/synapsesuggestor/treenode-association'
 
 SYN_SLICE_NEAR_SKEL_COLS = ['skeleton_id', 'treenode_id', 'synapse_object_id', 'synapse_slice_ids', 'synapse_z_s',
                'synapse_bounds_s']

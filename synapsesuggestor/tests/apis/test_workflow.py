@@ -8,7 +8,7 @@ from synapsesuggestor.models import (
 )
 from synapsesuggestor.tests.common import SynapseSuggestorTestCase
 
-URL_PREFIX = '/synapsesuggestor'
+URL_PREFIX = '/ext/synapsesuggestor'
 
 
 class WorkflowApiTests(SynapseSuggestorTestCase):

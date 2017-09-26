@@ -7,7 +7,7 @@ from catmaid.models import ProjectStack, Connector, Relation
 from catmaid.control.treenode import _create_treenode, create_connector_link
 from synapsesuggestor.tests.common import SynapseSuggestorTestCase
 
-URL_PREFIX = '/synapsesuggestor/analysis'
+URL_PREFIX = '/ext/synapsesuggestor/analysis'
 
 
 class AnalysisApiTests(SynapseSuggestorTestCase):
