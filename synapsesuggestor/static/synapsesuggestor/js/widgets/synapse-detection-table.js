@@ -6,7 +6,7 @@
   "use strict";
 
   var CACHE_TIMEOUT = 30*60*1000;  // 30 minutes
-  var URL_BASE = '${URL_BASE}';
+  var URL_BASE = '/ext/synapsesuggestor';
 
   var SynapseDetectionTable = function() {
     this.widgetID = this.registerInstance();
@@ -345,7 +345,7 @@
     } else {
       var self = this;
       var stackId = project.getStackViewers()[0].primaryStack.id;
-      return CATMAID.fetch(`${URL_BASE}analysis/${project.id}/workflow-info`, 'GET', {stack_id: stackId})
+      return CATMAID.fetch(`${URL_BASE}/analysis/${project.id}/workflow-info`, 'GET', {stack_id: stackId})
         .then(function(response) {
           self.workflowInfoOptions = response.workflows;
           self.workflowInfo = self.workflowInfo || response.workflows[0];
@@ -706,7 +706,7 @@
     }
 
     return CATMAID.fetch(
-      `${URL_BASE}analysis/${project.id}/skeleton-synapses`, 'GET',
+      `${URL_BASE}/analysis/${project.id}/skeleton-synapses`, 'GET',
       {skeleton_id: skelID, workflow_id: self.workflowInfo.workflow_id}
       ).then(function(response){
         return response.data.reduce(function (obj, responseRow) {
@@ -731,7 +731,7 @@
       }).then(function (rowsObj) {
         var tolerance = Number(document.getElementById(self.idPrefix + 'tolerance').value);
         return CATMAID.fetch(
-          `${URL_BASE}analysis/${project.id}/intersecting-connectors`, 'POST',
+          `${URL_BASE}/analysis/${project.id}/intersecting-connectors`, 'POST',
           {workflow_id: self.workflowInfo.workflow_id, synapse_object_ids: Object.keys(rowsObj), tolerance: tolerance}
         ).then(function(response) {
           for (var responseRow of response.data) {
@@ -1011,81 +1011,40 @@
           saveAs(new Blob([JSON.stringify(analysisResults, null, 2)], {type: 'text/json'}), 'analysisresults.json');
         }
 
-        // in px
-        var margins = {
-          top: 20,
-          left: 70,
-          bottom: 70,
-          right: 20
-        };
+        var precisionRecall = analysisResults.reduce(
+          function(accumulator, currentValue){
+            accumulator.y.push(currentValue.detectionPrecision);
+            accumulator.x.push(currentValue.detectionRecall);
+            return accumulator;
+          },
+          {y: [], x: [], type: 'lines+markers'});
 
-        var $container = $(container);
-
-        var h = $container.height() - margins.top - margins.bottom;
-        var w = $container.width() - margins.left - margins.right;
-
-        var svg = d3.select(container)
-          .append('svg')
-          .style('width', '100%')
-          .style('height', '100%');
-
-        var xScale = d3.scale.linear()
-          .domain([0, 1])
-          .rangeRound([margins.left, container.offsetWidth - margins.right]);
-
-        var yScale = d3.scale.linear()
-          .domain([0, 1])
-          .rangeRound([container.offsetHeight - margins.bottom, margins.top]);
-
-        // x axis
-        svg.append('g')
-          .call(
-            d3.svg.axis()
-              .scale(xScale)
-              .orient('bottom')
-          )
-          .attr("transform", `translate(0, ${yScale(0)})`);
-
-        svg.append('text')
-          .attr('x', xScale(0.5))
-          .attr('y', yScale(-0.1))
-          .style('text-anchor', 'middle')
-          .style('alignment-baseline', 'central')
-          .text('recall');
-
-        // y axis
-        svg.append('g')
-          .call(
-            d3.svg.axis()
-              .scale(yScale)
-              .orient('left')
-          )
-          .attr("transform", `translate(${xScale(0)}, 0)`);
-
-        svg.append('text')
-          .attr("transform", `translate(${xScale(-0.1)}, ${yScale(0.5)})rotate(-90)`)
-          .style('text-anchor', 'middle')
-          .style('alignment-baseline', 'central')
-          .text('precision');
-
-        var line = d3.svg.line()
-          .x(function(d){return xScale(d.detectionRecall);})
-          .y(function(d){return yScale(d.detectionPrecision);});
-
-        svg.append('path')
-          .attr('fill', 'none')
-          .attr("stroke", "blue")
-          .attr("stroke-linejoin", "round")
-          .attr("stroke-linecap", "round")
-          .attr("stroke-width", 2)
-          .attr('d', line(analysisResults));
+        Plotly.newPlot(
+          container,
+          [precisionRecall],
+          {
+            title: title,
+            xaxis: {
+              title: 'recall',
+              showgrid: true,
+              zeroline: true,
+              range: [0, 1],
+              showspikes: true
+            },
+            yaxis: {
+              title: 'precision',
+              showgrid: true,
+              zeroline: true,
+              range: [0, 1],
+              showspikes: true
+            }
+          }
+        );
       });
   };
 
   SynapseDetectionTable.prototype.update = function(forceRefresh) {
     var self = this;
-    var startTime = Date.now();
-    console.log('update started');
     if (forceRefresh) {
       self.cache = {};
     }
@@ -1103,8 +1062,6 @@
         }
         self.populateAnalysisResults();
         self.setSkelSourceText();
-        console.log(`update took ${(Date.now() - startTime)/1000}s`);
-        console.log('drawing');
         self.oTable.draw();
       });
     });
@@ -1115,6 +1072,11 @@
     this.unregisterInstance();
   };
 
-  CATMAID.registerWidget({key: 'synapse-detection-table', creator: SynapseDetectionTable});
+  CATMAID.registerWidget({
+    name: 'Synapse Detection Table',
+    description: 'View results of automated synapse detection',
+    key: 'synapse-detection-table',
+    creator: SynapseDetectionTable
+  });
 
 })(CATMAID);
