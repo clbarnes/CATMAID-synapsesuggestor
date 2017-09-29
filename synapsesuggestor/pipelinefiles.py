@@ -11,13 +11,6 @@ from collections import OrderedDict
 
 JAVASCRIPT = OrderedDict()
 
-JAVASCRIPT['synapsesuggestor-libs'] = {
-    'source_filenames': (
-        'synapsesuggestor/libs/plotly/*.js',
-    ),
-    'output_filename': 'js/libs/plotly-lib.js'
-}
-
 JAVASCRIPT['synapsesuggestor'] = {
     'source_filenames': (
         'synapsesuggestor/js/widgets/synapse-detection-table.js',
