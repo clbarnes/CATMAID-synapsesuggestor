@@ -26,7 +26,7 @@ urlpatterns += [
     url(r'^treenode-association/(?P<project_id>\d+)/get$', node_assoc.get_treenode_associations),
     url(r'^treenode-association/(?P<project_id>\d+)/get-distance$', node_assoc.get_synapse_slices_near_skeletons),
     url(r'^treenode-association/(?P<project_id>\d+)/add$', node_assoc.add_treenode_synapse_associations),
-    url(r'^treenode-association/(?P<project_id>\d+)/workflow', workflow.get_project_workflow),
+    url(r'^treenode-association/(?P<project_id>\d+)/workflow$', workflow.get_project_workflow),
 ]
 
 # analysis endpoints
@@ -35,7 +35,7 @@ urlpatterns += [
     url(r'^analysis/(?P<project_id>\d+)/skeleton-synapses$', analysis.get_skeleton_synapses),
     url(r'^analysis/(?P<project_id>\d+)/intersecting-connectors$', analysis.get_intersecting_connectors),
     url(r'^analysis/(?P<project_id>\d+)/workflow-info$', workflow.get_workflows_info),
-    url(r'^analysis/synapse-extents', analysis.get_synapse_extents),
+    url(r'^analysis/synapse-extents$ls', analysis.get_synapse_extents),
 ]
 
 # training data endpoints
