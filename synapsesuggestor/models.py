@@ -94,7 +94,7 @@ class SynapseSlice(models.Model):
     """Region of a 2D cross-section of a synapse which appears in one tile"""
     synapse_detection_tile = models.ForeignKey(SynapseDetectionTile, on_delete=models.CASCADE)
 
-    convex_hull_2d = spatial_models.PolygonField(srid=0, spatial_index=True)
+    geom_2d = spatial_models.PolygonField(srid=0, spatial_index=True)
     size_px = models.IntegerField()
 
     xs_centroid = models.IntegerField(verbose_name='x coord of centroid in stack coordinates')
