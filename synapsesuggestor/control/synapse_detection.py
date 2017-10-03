@@ -60,7 +60,7 @@ def add_synapse_slices_from_tile(request, project_id=None):
     synapse_slices: JSON string encoding dict of synapse slice information of form
         {
             "id": naive ID of synapse slice
-            "wkt_str": Multipoint WKT string describing synapse's geometry (will be convex hulled)
+            "wkt_str": Multipoint WKT string describing synapse's geometry
             "xs_centroid": integer centroid in x dimension, stack coordinates
             "ys_centroid": integer centroid in y dimension, stack coordinates,
             "size_px"
@@ -92,13 +92,14 @@ def add_synapse_slices_from_tile(request, project_id=None):
     query, args = list_into_query(
         '''
             INSERT INTO synapse_slice (
-              synapse_detection_tile_id, convex_hull_2d, size_px, xs_centroid, ys_centroid, uncertainty
+              synapse_detection_tile_id, geom_2d, size_px, xs_centroid, ys_centroid, uncertainty
             )
             VALUES {}
             RETURNING id;
         ''',
         syn_slice_rows,
-        fmt='(%s, ST_ConvexHull(ST_GeomFromText(%s)), %s, %s, %s, %s)'
+        # todo: simplify geometry
+        fmt='(%s, ST_GeomFromText(%s), %s, %s, %s, %s)'
     )
 
     cursor = connection.cursor()
@@ -141,7 +142,7 @@ def _get_synapse_slice_adjacencies(synapse_slice_ids, cursor=None):
             AND that_tile.synapse_suggestion_workflow_id = ssw.id
           INNER JOIN synapse_slice that_slice
             ON that_slice.synapse_detection_tile_id = that_tile.id
-            AND ST_DWithin(this_slice.convex_hull_2d, that_slice.convex_hull_2d, 1.1)
+            AND ST_DWithin(this_slice.geom_2d, that_slice.geom_2d, 1.1)
             AND this_slice.id != that_slice.id;
     ''', synapse_slice_ids, fmt='(%s)')
     cursor.execute(query, args)

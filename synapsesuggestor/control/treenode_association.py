@@ -120,7 +120,7 @@ def get_treenode_associations(request, project_id=None):
 #
 #     cursor.execute('''
 #         SELECT sstn.treenode_id, ssso.synapse_object_id,
-#           ST_Distance(ST_MakePoint((tn.location_x / %s) - %s, (tn.location_y / %s) - %s), ss.convex_hull_2d)
+#           ST_Distance(ST_MakePoint((tn.location_x / %s) - %s, (tn.location_y / %s) - %s), ss.geom_2d)
 #         FROM synapse_slice_treenode sstn
 #         INNER JOIN synapse_slice ss
 #           ON sstn.synapse_slice_id = ss.id
@@ -153,7 +153,7 @@ def get_synapse_objects_info(translation, resolution, synapse_object_ids, cursor
               ST_Translate(
                 ST_Force_3D(
                   ST_Scale(
-                    ss.convex_hull_2d, %s, %s
+                    ss.geom_2d, %s, %s
                   )
                 ), %s, %s, %s + tile.z_tile_idx * %s
               ), 0, 0, %s
@@ -219,10 +219,10 @@ def get_synapse_slices_near_skeletons(request, project_id=None):
         cursor.execute('''
             SELECT tn.skeleton_id, tn.id, ss_so2.synapse_object_id, array_agg(DISTINCT ss2.id), 
               tile2.z_tile_idx, ARRAY[
-                ST_XMin(ST_Extent(ss2.convex_hull_2d)),
-                ST_YMin(ST_Extent(ss2.convex_hull_2d)),
-                ST_XMax(ST_Extent(ss2.convex_hull_2d)),
-                ST_YMax(ST_Extent(ss2.convex_hull_2d))
+                ST_XMin(ST_Extent(ss2.geom_2d)),
+                ST_YMin(ST_Extent(ss2.geom_2d)),
+                ST_XMax(ST_Extent(ss2.geom_2d)),
+                ST_YMax(ST_Extent(ss2.geom_2d))
               ]
             FROM synapse_slice ss1
             INNER JOIN synapse_detection_tile tile1
@@ -231,7 +231,7 @@ def get_synapse_slices_near_skeletons(request, project_id=None):
               ON tile1.z_tile_idx = (tn.location_z / %s) - %s
               AND ST_DWithin(
                     ST_MakePoint((tn.location_x / %s) - %s, (tn.location_y / %s) - %s),
-                    ss1.convex_hull_2d, 
+                    ss1.geom_2d, 
                     (%s / %s) - %s
                 )
             INNER JOIN synapse_slice_synapse_object ss_so1

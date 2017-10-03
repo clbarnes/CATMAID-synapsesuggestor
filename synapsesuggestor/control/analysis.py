@@ -197,7 +197,7 @@ def get_intersecting_connectors(request, project_id=None):
             ON ss.synapse_detection_tile_id = tile.id
           INNER JOIN treenode_connector_edge tce
             ON (tile.z_tile_idx + %s) * %s BETWEEN ST_ZMin(tce.edge) AND ST_ZMax(tce.edge)
-            AND ST_DWithin(tce.edge, ST_TransScale(ss.convex_hull_2d, %s, %s, %s, %s), %s)
+            AND ST_DWithin(tce.edge, ST_TransScale(ss.geom_2d, %s, %s, %s, %s), %s)
           WHERE ss_so.synapse_object_id = ANY(%s::bigint[])
             AND tce.project_id = %s
       ) as obj_edge (obj_id, tce_id)
@@ -259,8 +259,8 @@ def get_synapse_extents(request, project_id=None):
     # could use ST_Extent, but would then have to interrogate WKT str to add padding
     cursor.execute('''
         SELECT ss_so.synapse_object_id, array_agg(ss.id),
-            min(ST_XMin(ss.convex_hull_2d)) - %(xy_pad)s, max(ST_XMax(ss.convex_hull_2d)) + %(xy_pad)s,
-            min(ST_YMin(ss.convex_hull_2d)) - %(xy_pad)s, max(ST_YMax(ss.convex_hull_2d)) + %(xy_pad)s,
+            min(ST_XMin(ss.geom_2d)) - %(xy_pad)s, max(ST_XMax(ss.geom_2d)) + %(xy_pad)s,
+            min(ST_YMin(ss.geom_2d)) - %(xy_pad)s, max(ST_YMax(ss.geom_2d)) + %(xy_pad)s,
             min(tile.z_tile_idx) - %(z_pad)s, max(tile.z_tile_idx) + %(z_pad)s
           FROM synapse_slice_synapse_object ss_so
           INNER JOIN synapse_slice ss 

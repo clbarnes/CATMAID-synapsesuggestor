@@ -65,7 +65,7 @@
   "pk": 2,
   "fields": {
     "synapse_detection_tile": 1,
-    "convex_hull_2d": "POLYGON ((0.0 0.0, 1.0 0.0, 1.0 1.0, 0.0 1.0, 0.0 0.0))",
+    "geom_2d": "POLYGON ((0.0 0.0, 1.0 0.0, 1.0 1.0, 0.0 1.0, 0.0 0.0))",
     "size_px": 50,
     "xs_centroid": 0,
     "ys_centroid": 0,
@@ -77,7 +77,7 @@
   "pk": 3,
   "fields": {
     "synapse_detection_tile": 1,
-    "convex_hull_2d": "POLYGON ((1.0 0.0, 2.0 0.0, 2.0 1.0, 1.0 1.0, 1.0 0.0))",
+    "geom_2d": "POLYGON ((1.0 0.0, 2.0 0.0, 2.0 1.0, 1.0 1.0, 1.0 0.0))",
     "size_px": 100,
     "xs_centroid": 1,
     "ys_centroid": 1,
