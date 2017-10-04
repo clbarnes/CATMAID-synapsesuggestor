@@ -60,7 +60,7 @@ def add_synapse_slices_from_tile(request, project_id=None):
     synapse_slices: JSON string encoding dict of synapse slice information of form
         {
             "id": naive ID of synapse slice
-            "wkt_str": Multipoint WKT string describing synapse's geometry
+            "geom": geoJSON string describing synapse's geometry as a Polygon
             "xs_centroid": integer centroid in x dimension, stack coordinates
             "ys_centroid": integer centroid in y dimension, stack coordinates,
             "size_px"
@@ -89,7 +89,7 @@ def add_synapse_slices_from_tile(request, project_id=None):
         return JsonResponse(dict())
 
     syn_slice_rows = [
-        (tile_id, d['wkt_str'], d['size_px'], int(d['xs_centroid']), int(d['ys_centroid']), d['uncertainty'])
+        (tile_id, d['geom'], d['size_px'], int(d['xs_centroid']), int(d['ys_centroid']), d['uncertainty'])
         for d in synapse_slices
     ]
 
@@ -102,7 +102,7 @@ def add_synapse_slices_from_tile(request, project_id=None):
             RETURNING id;
         ''',
         syn_slice_rows,
-        fmt='(%s, ST_Simplify(ST_GeomFromText(%s), {}), %s, %s, %s, %s)'.format(rdp_tolerance)
+        fmt='(%s, ST_ForceRHR(ST_Simplify(ST_GeomFromGeoJson(%s), {}, TRUE)), %s, %s, %s, %s)'.format(rdp_tolerance)
     )
 
     cursor = connection.cursor()
