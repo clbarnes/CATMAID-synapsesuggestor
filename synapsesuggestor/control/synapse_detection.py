@@ -66,12 +66,16 @@ def add_synapse_slices_from_tile(request, project_id=None):
             "size_px"
             "uncertainty"
         }
+    tolerance: Geometries are simplified before entering the database. This specifies the tolerance parameter
+        used by the Ramer-Douglas-Peucker simplification algorithm. Note that due to this simplification,
+        there may be a small difference between a synapseslice's size_px and its ST_Area(geom_2d).
     """
     ssw_id = request.POST['workflow_id']
     synapse_slices = get_request_list(request.POST, 'synapse_slices', tuple(), json.loads)
     tile_x_idx = int(request.POST['x_idx'])
     tile_y_idx = int(request.POST['y_idx'])
     tile_z_idx = int(request.POST['z_idx'])
+    rdp_tolerance = float(request.POST.get('tolerance', 1))
 
     tile, created = SynapseDetectionTile.objects.get_or_create(
         synapse_suggestion_workflow_id=ssw_id,
@@ -98,8 +102,7 @@ def add_synapse_slices_from_tile(request, project_id=None):
             RETURNING id;
         ''',
         syn_slice_rows,
-        # todo: simplify geometry
-        fmt='(%s, ST_GeomFromText(%s), %s, %s, %s, %s)'
+        fmt='(%s, ST_Simplify(ST_GeomFromText(%s), {}), %s, %s, %s, %s)'.format(rdp_tolerance)
     )
 
     cursor = connection.cursor()
