@@ -256,7 +256,7 @@ def get_synapse_extents(request, project_id=None):
     xy_pad = int(request.GET.get('xy_padding', 0))
 
     cursor = connection.cursor()
-    # could use ST_Extent, but would then have to interrogate WKT str to add padding
+    # could use ST_Extent, but would then have to interrogate str to add padding
     cursor.execute('''
         SELECT ss_so.synapse_object_id, array_agg(ss.id),
             min(ST_XMin(ss.geom_2d)) - %(xy_pad)s, max(ST_XMax(ss.geom_2d)) + %(xy_pad)s,
