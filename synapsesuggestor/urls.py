@@ -35,7 +35,7 @@ urlpatterns += [
     url(r'^analysis/(?P<project_id>\d+)/skeleton-synapses$', analysis.get_skeleton_synapses),
     url(r'^analysis/(?P<project_id>\d+)/intersecting-connectors$', analysis.get_intersecting_connectors),
     url(r'^analysis/(?P<project_id>\d+)/workflow-info$', workflow.get_workflows_info),
-    url(r'^analysis/synapse-extents$ls', analysis.get_synapse_extents),
+    url(r'^analysis/synapse-extents$', analysis.get_synapse_extents),
 ]
 
 # training data endpoints
