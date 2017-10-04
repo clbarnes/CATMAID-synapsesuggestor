@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 from string import Formatter
+import json
 
 from six import string_types
 import numpy as np
@@ -17,6 +18,8 @@ def flatten(arg):
     elements = []
     if isinstance(arg, string_types):
         elements.append(arg)
+    elif isinstance(arg, dict):
+        elements.append(json.dumps(arg))
     else:
         try:
             for item in arg:
