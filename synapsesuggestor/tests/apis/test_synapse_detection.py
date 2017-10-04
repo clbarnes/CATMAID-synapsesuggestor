@@ -9,6 +9,16 @@ from synapsesuggestor.tests.common import SynapseSuggestorTestCase
 
 URL_PREFIX = '/ext/synapsesuggestor/synapse-detection'
 
+# Synapse geometries are simplified; default value is 1, which breaks most of the test data
+RDP_TOLERANCE = 0.1
+
+
+def close_ring(coord_lst):
+    if coord_lst[-1] == coord_lst[0]:
+        return coord_lst
+    else:
+        return coord_lst + [coord_lst[0]]
+
 
 class SynapseDetectionApiTests(SynapseSuggestorTestCase):
     def test_get_detected_tiles(self):
@@ -62,7 +72,7 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         orig_ids = []
         dict_strs = []
         for idx, coord_lst in enumerate(coords, 1):
-            wkt_str = 'MULTIPOINT({})'.format(','.join('{} {}'.format(x, y) for x, y in coord_lst))
+            geom = {"type": "Polygon", "coordinates": [close_ring(coord_lst)]}
             xs_centroid = int(np.mean([x for x, _ in coord_lst]))
             ys_centroid = int(np.mean([y for _, y in coord_lst]))
 
@@ -71,7 +81,7 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
             dict_strs.append(json.dumps(
                 {
                     'id': idx,
-                    'wkt_str': wkt_str,
+                    'geom': geom,
                     'xs_centroid': xs_centroid,
                     'ys_centroid': ys_centroid,
                     'size_px': size_px,
@@ -84,7 +94,8 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
             'x_idx': tile_idx[0],
             'y_idx': tile_idx[1],
             'z_idx': tile_idx[2],
-            'synapse_slices': dict_strs
+            'synapse_slices': dict_strs,
+            'tolerance': RDP_TOLERANCE
         }
 
         return data, orig_ids
@@ -102,8 +113,8 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         self.assertEqual(response.status_code, 200)
         parsed_response = json.loads(response.content.decode('utf-8'))
 
-        self.assertEqual(len(orig_ids), len(parsed_response))
-        self.assertSetEqual(set(orig_ids), {int(key) for key in parsed_response.keys()})
+        self.assertEqual(len(parsed_response), len(orig_ids))
+        self.assertSetEqual({int(key) for key in parsed_response.keys()}, set(orig_ids))
         self.assertEqual(len(parsed_response), len(set(parsed_response.values())))
 
     def insert_synapse(self, z, *toplefts, **kwargs):
@@ -140,6 +151,15 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         self.assertEqual(len(parsed_response), len(toplefts))
 
         return [parsed_response[str(orig_id)] for orig_id in orig_ids]
+
+    def test_simplified_geom(self):
+        """Test that unnecessary points are removed from a geometry"""
+        pass
+
+    def test_RHR_geom(self):
+        """Test that the stored geometry returns a right-hand-rule-compliant geometry (exterior counter-clockwise,
+        interior clockwise)"""
+        pass
 
     def agglomerate_synapses(self, syn_ids):
         """
