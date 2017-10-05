@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 import json
+from unittest import skip
 
 import numpy as np
 from six import assertCountEqual
+
+from django.db import connection
 
 from synapsesuggestor.models import SynapseSliceSynapseObject, SynapseObject, SynapseSlice
 from synapsesuggestor.tests.common import SynapseSuggestorTestCase
@@ -18,6 +21,16 @@ def close_ring(coord_lst):
         return coord_lst
     else:
         return coord_lst + [coord_lst[0]]
+
+
+def get_slice_geom(*ss_ids):
+    cursor = connection.cursor()
+    output = dict()
+    for ss_id in ss_ids:
+        cursor.execute('SELECT ST_AsGeoJSON(ss.geom_2d) FROM synapse_slice ss WHERE ss.id = %s;', (ss_id, ))
+        output[ss_id] = json.loads(cursor.fetchone()[0])
+
+    return output
 
 
 class SynapseDetectionApiTests(SynapseSuggestorTestCase):
@@ -117,9 +130,9 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         self.assertSetEqual({int(key) for key in parsed_response.keys()}, set(orig_ids))
         self.assertEqual(len(parsed_response), len(set(parsed_response.values())))
 
-    def insert_synapse(self, z, *toplefts, **kwargs):
+    def insert_synapses(self, z, *toplefts, **kwargs):
         """
-        Insert a synapses into the database at the given locations
+        Insert synapses into the database at the given locations
 
         Parameters
         ----------
@@ -154,12 +167,39 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
 
     def test_simplified_geom(self):
         """Test that unnecessary points are removed from a geometry"""
-        pass
+        input_coord_list = [(0, 0), (1, 0), (1, 0.5), (1, 1), (0, 1), (0, 0)]
+        data, orig_ids = self.create_synapse_slice_data([input_coord_list], [0, 0, 0])
+        response = self.client.post(URL_PREFIX + '/tiles/insert-synapse-slices', data)
+        self.assertEqual(response.status_code, 200)
+        parsed_response = json.loads(response.content.decode('utf-8'))
+        new_id = parsed_response[str(orig_ids[0])]
 
+        geom = get_slice_geom(new_id)[new_id]
+        outer_ring = geom['coordinates'][0]
+        self.assertEqual(len(outer_ring), len(input_coord_list) - 1)  # remove a coord
+        self.assertSetEqual({tuple(xy) for xy in outer_ring}, {(0, 0), (1, 0), (1, 1), (0, 1)})
+
+    @skip("Database does not force geometries into particular orientation")
     def test_RHR_geom(self):
-        """Test that the stored geometry returns a right-hand-rule-compliant geometry (exterior counter-clockwise,
-        interior clockwise)"""
-        pass
+        """Test that the stored geometry returns a left-hand-rule-compliant geometry (exterior counter-clockwise)"""
+        order = ('cw', 'counter_cw')
+
+        coords = {
+            'cw': [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]],
+            'counter_cw': [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+        }
+
+        data, orig_ids = self.create_synapse_slice_data([coords[key] for key in order], [0, 0, 0])
+        orig_ids = dict(zip(order, orig_ids))
+        response = self.client.post(URL_PREFIX + '/tiles/insert-synapse-slices', data)
+        self.assertEqual(response.status_code, 200)
+        parsed_response = json.loads(response.content.decode('utf-8'))
+        new_ids = {key: parsed_response[str(value)] for key, value in orig_ids.items()}
+
+        id_geoms = get_slice_geom(*list(new_ids.values()))
+        geoms = {key: id_geoms[value] for key, value in new_ids.items()}
+        self.assertListEqual(geoms['cw']['coordinates'], geoms['counter_cw']['coordinates'])  # output geoms identical
+        self.assertListEqual(geoms['cw']['coordinates'], [coords['counter_cw']])  # output geoms are both CCW
 
     def agglomerate_synapses(self, syn_ids):
         """
@@ -199,7 +239,7 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         """
         self.fake_authentication()
 
-        new_ids = self.insert_synapse(0, (0, 1))
+        new_ids = self.insert_synapses(0, (0, 1))
 
         parsed_response = self.agglomerate_synapses(new_ids)
 
@@ -215,7 +255,7 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         """
         self.fake_authentication()
 
-        new_ids = self.insert_synapse(1, (0, 0))
+        new_ids = self.insert_synapses(1, (0, 0))
 
         parsed_response = self.agglomerate_synapses(new_ids)
 
@@ -234,7 +274,7 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         existing_mappings = SynapseSliceSynapseObject.objects.all()
         len(existing_mappings)  # force query to evaluate
 
-        new_ids = self.insert_synapse(0, (0, 3))
+        new_ids = self.insert_synapses(0, (0, 3))
 
         parsed_response = self.agglomerate_synapses(new_ids)
 
@@ -256,12 +296,12 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
 
         # set up distant syn slice with its own syn object
         # should be identical to test_agglomerate_synapse_slices_separate
-        new_ids = self.insert_synapse(0, (0, 3))
+        new_ids = self.insert_synapses(0, (0, 3))
         parsed_response = self.agglomerate_synapses(new_ids)
         self.assertEqual(len(parsed_response['slice_object_mappings']), 1)
 
         # set up a bridge synapse which will force all of them to agglomerate
-        new_ids = self.insert_synapse(0, (0, 1), height=2)
+        new_ids = self.insert_synapses(0, (0, 1), height=2)
         parsed_response = self.agglomerate_synapses(new_ids)
 
         self.assertEqual(len(parsed_response['slice_object_mappings']), 4)  # all 4 syn slices are merged
@@ -280,7 +320,7 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         """
         self.fake_authentication()
 
-        new_ids = self.insert_synapse(0, (0, 1))
+        new_ids = self.insert_synapses(0, (0, 1))
         duplicated_new_ids = list(new_ids) * 2
 
         parsed_response = self.agglomerate_synapses(duplicated_new_ids)
@@ -304,16 +344,16 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         self.fake_authentication()
         self.clear_synapses()
 
-        leftmost_ids = self.insert_synapse(0, (0, 0))
+        leftmost_ids = self.insert_synapses(0, (0, 0))
         self.agglomerate_synapses(leftmost_ids)
-        right_orig_ids = self.insert_synapse(0, (5, 0), (7, 0), width=2)
+        right_orig_ids = self.insert_synapses(0, (5, 0), (7, 0), width=2)
         self.agglomerate_synapses(right_orig_ids)
 
         self.assertEqual(SynapseObject.objects.count(), 2)
         self.assertEqual(SynapseSliceSynapseObject.objects.count(), SynapseSlice.objects.count())
 
-        bridge_ids = self.insert_synapse(0, (1, 0), (3, 0), width=2)
-        rightmost_ids = self.insert_synapse(0, (9, 0))
+        bridge_ids = self.insert_synapses(0, (1, 0), (3, 0), width=2)
+        rightmost_ids = self.insert_synapses(0, (9, 0))
         self.agglomerate_synapses(bridge_ids + rightmost_ids)
 
         self.assertEqual(SynapseObject.objects.count(), 1)

@@ -102,7 +102,7 @@ def add_synapse_slices_from_tile(request, project_id=None):
             RETURNING id;
         ''',
         syn_slice_rows,
-        fmt='(%s, ST_ForceRHR(ST_Simplify(ST_GeomFromGeoJson(%s), {}, TRUE)), %s, %s, %s, %s)'.format(rdp_tolerance)
+        fmt='(%s, ST_Simplify(ST_GeomFromGeoJson(%s), {}, TRUE), %s, %s, %s, %s)'.format(rdp_tolerance)
     )
 
     cursor = connection.cursor()
