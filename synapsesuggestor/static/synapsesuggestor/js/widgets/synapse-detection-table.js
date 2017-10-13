@@ -1119,11 +1119,11 @@
       var constraintObj = {};
       if (constraintName === 'uncertainty') {
         constraintObj.uncertainty = {
-          min: linspace(CONSTRAINT_RANGES.uncertainty.min, CONSTRAINT_RANGES.uncertainty.min, bins)
+          max: linspace(CONSTRAINT_RANGES.uncertainty.min, CONSTRAINT_RANGES.uncertainty.max, bins)
         }
       } else {
         constraintObj[constraintName] = {
-          max: linspace(CONSTRAINT_RANGES[constraintName].min, CONSTRAINT_RANGES[constraintName].max, bins, true)
+          min: linspace(CONSTRAINT_RANGES[constraintName].min, CONSTRAINT_RANGES[constraintName].max, bins, true)
         }
       }
 
