@@ -8,6 +8,26 @@
   var CACHE_TIMEOUT = 30*60*1000;  // 30 minutes
   var URL_BASE = '/ext/synapsesuggestor';
 
+  var CONSTRAINT_RANGES = {
+    uncertainty: {
+      min: 0,
+      max: 1
+    },
+    sizePx: {
+      min: 1,
+      max: 10000
+    },
+    slices: {
+      min: 1,
+      max: 20
+    },
+    contactpx: {
+      min: 1,
+      max: 800
+    }
+  };
+
+
   var SynapseDetectionTable = function() {
     this.widgetID = this.registerInstance();
     this.idPrefix = `synapse-detection-table${this.widgetID}-`;
@@ -333,12 +353,15 @@
           
           <div id="${self.idPrefix}plots">
             <label>Download results: <input type="checkbox" class="download-checkbox"></label>
+            <label>Bins: <input type="number" class="bins-input" value="10" min="2"></label>
             <br>
             <button class="uncertainty">Plot precision/recall for uncertainty</button>
             <button class="sizePx">Plot precision/recall for synapse size</button>
             <button class="slices">Plot precision/recall for synapse slices</button>
-            <button class="contactPx">Plot precision/recall for contact area</button>
-            <div style="width:600px; height:600px" class="plot"></div>
+            <button class="contactPx">Plot precision/recall for contact area</button> 
+            <br>
+            <button class="compare">Compare precision-recalls</button>
+            <div style="width:1000px; height:1000px" class="plot"></div>
           </div>
         `;
 },
@@ -410,9 +433,9 @@
         },
         {
           data: 'uncertainty',
-          render: function(data, type, row, meta) {
+          render: function (data, type, row, meta) {
             if (type === 'display') {
-              return Math.round(data*100)/100;
+              return Math.round(data * 100) / 100;
             } else {
               return data;
             }
@@ -439,7 +462,7 @@
         },
         {
           data: 'associatedConnIDs',
-          render: function(data, type, row, meta) {
+          render: function (data, type, row, meta) {
             if (type === 'filter') {
               return ` ${Array.from(data).join(' ')} `;
             } else {
@@ -480,7 +503,7 @@
       }
     });
 
-    $table.on("dblclick", "tbody tr", function() {
+    $table.on("dblclick", "tbody tr", function () {
       var rowData = self.oTable.row(this).data();
       var coords = rowData.coords;
 
@@ -512,10 +535,11 @@
     var $plots = $(`#${self.idPrefix}plots`);
     var plotContainer = $plots.find('.plot')[0];
     var $downloadCheckbox = $plots.find('.download-checkbox')[0];
+    var $binsInput = $plots.find('.bins-input')[0];
 
     var $sweepConstants = $(`#${self.idPrefix}sweep-constants`);
 
-    var getPrecisionRecallConstants = function() {
+    var getPrecisionRecallConstants = function () {
       var obj = {};
       var val;
 
@@ -540,57 +564,44 @@
       return obj;
     };
 
-    $plots.on('click', '.uncertainty', function (event) {
-      emptyNode(plotContainer);
-      var constraints = getPrecisionRecallConstants();
-      constraints.uncertainty = {max: linspace(0, 1, 20)};
-      self.plotConstraintSweep(
-        plotContainer,
-        self.skeletonSource.getSelectedSkeletons(),
-        constraints,
-        '',
-        $downloadCheckbox.checked
-      );
-    });
+    var plotFnFactory = function (attribute, round) {
+      return function (event) {
+        emptyNode(plotContainer);
+        var constraints = getPrecisionRecallConstants();
+        var bins = Number($binsInput.value);
+        if (attribute === 'uncertainty') {
+          constraints.uncertainty = {
+            min: linspace(CONSTRAINT_RANGES.uncertainty.min, CONSTRAINT_RANGES.uncertainty.min, bins, round)
+          }
+        } else {
+          constraints[attribute] = {
+            max: linspace(CONSTRAINT_RANGES[attribute].min, CONSTRAINT_RANGES[attribute].max, bins, round)
+          }
+        }
 
-    $plots.on('click', '.sizePx', function (event) {
-      emptyNode(plotContainer);
-      var constraints = getPrecisionRecallConstants();
-      constraints.sizePx = {min: linspace(0, 10000, 20)};
-      self.plotConstraintSweep(
-        plotContainer,
-        self.skeletonSource.getSelectedSkeletons(),
-        constraints,
-        '',
-        $downloadCheckbox.checked
-      );
-    });
+        self.plotConstraintSweep(
+          plotContainer,
+          self.skeletonSource.getSelectedSkeletons(),
+          constraints,
+          attribute,
+          $downloadCheckbox.checked
+        );
+      };
+    };
 
-    $plots.on('click', '.slices', function (event) {
-      emptyNode(plotContainer);
-      var constraints = getPrecisionRecallConstants();
-      constraints.slices = {min: linspace(1, 10, 15, true)};
-      self.plotConstraintSweep(
-        plotContainer,
-        self.skeletonSource.getSelectedSkeletons(),
-        constraints,
-        '',
-        $downloadCheckbox.checked
-      );
-    });
+    $plots.on('click', '.uncertainty', plotFnFactory('uncertainty'));
+    $plots.on('click', '.sizePx', plotFnFactory('sizePx', true));
+    $plots.on('click', '.slices', plotFnFactory('slices', true));
+    $plots.on('click', '.contactPx', plotFnFactory('contactPx', true));
 
-    $plots.on('click', '.contactPx', function (event) {
+    $plots.on('click', '.compare', function(event) {
       emptyNode(plotContainer);
-      var constraints = getPrecisionRecallConstants();
-      constraints.contactPx = {min: linspace(1, 900, 15, true)};
-      self.plotConstraintSweep(
+      self.plotAllPrecRecCurves(
         plotContainer,
         self.skeletonSource.getSelectedSkeletons(),
-        constraints,
-        '',
-        $downloadCheckbox.checked
+        Number($binsInput.value)
       );
-    });
+    })
   };
 
   /**
@@ -608,7 +619,7 @@
 
   /**
    * Return an array of numbers from 'start' to 'stop' (inclusive), of length 'count'. If 'round' is true, round each
-   * one.
+   * one. Prevents duplicates, so length may be smaller than count.
    *
    * @param start
    * @param stop
@@ -619,11 +630,17 @@
   var linspace = function(start, stop, count, round) {
     var out = [start];
     var step = (stop - start) / (count-1);
+    var previous = start;
     for (var i = 1; i < count-1; i++) {
       start += step;
-      out.push(round ? Math.round(start) : start);
+      var value = round ? Math.round(start) : start;
+      if (value !== previous && value !== stop) {
+        out.push(value)
+      }
+      previous = value;
     }
     out.push(stop);  // account for float imprecision
+
     return out;
   };
 
@@ -1069,7 +1086,8 @@
             accumulator.x.push(currentValue.detectionRecall);
             return accumulator;
           },
-          {y: [], x: [], type: 'lines+markers'});
+          {y: [], x: [], type: 'lines+markers'}
+        );
 
         Plotly.newPlot(
           container,
@@ -1093,6 +1111,55 @@
           }
         );
       });
+  };
+
+  SynapseDetectionTable.prototype.plotAllPrecRecCurves = function(container, skelIDs, bins) {
+    var self = this;
+    var linePromises = Object.keys(CONSTRAINT_RANGES).map(function(constraintName){
+      var constraintObj = {};
+      if (constraintName === 'uncertainty') {
+        constraintObj.uncertainty = {
+            min: linspace(CONSTRAINT_RANGES.uncertainty.min, CONSTRAINT_RANGES.uncertainty.min, bins, round)
+          }
+      } else {
+        constraintObj[constraintName] = {
+          max: linspace(CONSTRAINT_RANGES[attribute].min, CONSTRAINT_RANGES[attribute].max, bins, round)
+        }
+      }
+
+      return self.sweepConstraints(skelIDs, constraintObj).then(function(analysisResults) {
+        return analysisResults.reduce(function(accumulator, currentValue){
+            accumulator.y.push(currentValue.detectionPrecision);
+            accumulator.x.push(currentValue.detectionRecall);
+            return accumulator;
+          }, {y: [], x: [], type: 'lines+markers', name: constraintName}
+        );
+      })
+    });
+
+    Promise.all(linePromises).then(function(lines) {
+      Plotly.newPlot(
+        container,
+        lines,
+        {
+          title: 'Comparison',
+          xaxis: {
+            title: 'recall',
+            showgrid: true,
+            zeroline: true,
+            range: [0, 1],
+            showspikes: true
+          },
+          yaxis: {
+            title: 'precision',
+            showgrid: true,
+            zeroline: true,
+            range: [0, 1],
+            showspikes: true
+          }
+        }
+      );
+    });
   };
 
   SynapseDetectionTable.prototype.update = function(forceRefresh) {
