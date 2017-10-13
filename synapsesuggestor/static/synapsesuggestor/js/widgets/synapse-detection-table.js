@@ -571,11 +571,11 @@
         var bins = Number($binsInput.value);
         if (attribute === 'uncertainty') {
           constraints.uncertainty = {
-            min: linspace(CONSTRAINT_RANGES.uncertainty.min, CONSTRAINT_RANGES.uncertainty.min, bins, round)
+            min: linspace(CONSTRAINT_RANGES.uncertainty.min, CONSTRAINT_RANGES.uncertainty.min, bins)
           }
         } else {
           constraints[attribute] = {
-            max: linspace(CONSTRAINT_RANGES[attribute].min, CONSTRAINT_RANGES[attribute].max, bins, round)
+            max: linspace(CONSTRAINT_RANGES[attribute].min, CONSTRAINT_RANGES[attribute].max, bins, true)
           }
         }
 
@@ -590,9 +590,9 @@
     };
 
     $plots.on('click', '.uncertainty', plotFnFactory('uncertainty'));
-    $plots.on('click', '.sizePx', plotFnFactory('sizePx', true));
-    $plots.on('click', '.slices', plotFnFactory('slices', true));
-    $plots.on('click', '.contactPx', plotFnFactory('contactPx', true));
+    $plots.on('click', '.sizePx', plotFnFactory('sizePx'));
+    $plots.on('click', '.slices', plotFnFactory('slices'));
+    $plots.on('click', '.contactPx', plotFnFactory('contactPx'));
 
     $plots.on('click', '.compare', function(event) {
       emptyNode(plotContainer);
@@ -1119,11 +1119,11 @@
       var constraintObj = {};
       if (constraintName === 'uncertainty') {
         constraintObj.uncertainty = {
-            min: linspace(CONSTRAINT_RANGES.uncertainty.min, CONSTRAINT_RANGES.uncertainty.min, bins, round)
+            min: linspace(CONSTRAINT_RANGES.uncertainty.min, CONSTRAINT_RANGES.uncertainty.min, bins)
           }
       } else {
         constraintObj[constraintName] = {
-          max: linspace(CONSTRAINT_RANGES[attribute].min, CONSTRAINT_RANGES[attribute].max, bins, round)
+          max: linspace(CONSTRAINT_RANGES[attribute].min, CONSTRAINT_RANGES[attribute].max, bins, true)
         }
       }
 
