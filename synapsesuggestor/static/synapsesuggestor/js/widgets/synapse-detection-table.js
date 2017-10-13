@@ -564,7 +564,7 @@
       return obj;
     };
 
-    var plotFnFactory = function (attribute, round) {
+    var plotFnFactory = function (attribute) {
       return function (event) {
         emptyNode(plotContainer);
         var constraints = getPrecisionRecallConstants();
@@ -1123,7 +1123,7 @@
           }
       } else {
         constraintObj[constraintName] = {
-          max: linspace(CONSTRAINT_RANGES[attribute].min, CONSTRAINT_RANGES[attribute].max, bins, true)
+          max: linspace(CONSTRAINT_RANGES[constraintName].min, CONSTRAINT_RANGES[constraintName].max, bins, true)
         }
       }
 
