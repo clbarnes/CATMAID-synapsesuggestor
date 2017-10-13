@@ -293,6 +293,14 @@
             
               <div class="constraint-slider"></div>
             </div>
+            
+            <div class="contactPx">
+              <label>
+                Contact area (px): <a class="min">unknown</a> - <a class="max">unknown</a>
+              </label>
+            
+              <div class="constraint-slider"></div>
+            </div>
           </div>
           
           <br>
@@ -307,6 +315,9 @@
             <tr><td>Possible stitching error</td><td id="${self.idPrefix}stitch-error">0</td></tr>
             <tr><td>Detection precision</td><td id="${self.idPrefix}detection-precision">0</td></tr>
             <tr><td>Detection recall</td><td id="${self.idPrefix}detection-recall">0</td></tr>
+            <tr><td>F1 score</td><td id="${self.idPrefix}f1-score">0</td></tr>
+            <tr><td>F2 score (reward recall)</td><td id="${self.idPrefix}f2-score">0</td></tr>
+            <tr><td>F0.5 score (reward precision)</td><td id="${self.idPrefix}f05-score">0</td></tr>
           </table>
           
           <br>
@@ -315,6 +326,7 @@
             <label>Uncertainty: <input class="uncertainty" type="number"></label>
             <label>Size: <input class="sizePx" type="number"></label>
             <label>Slices: <input class="slices" type="number"></label>
+            <label>Contact area: <input class="contactPx" type="number"></label>
           </div>
           
           <br>
@@ -325,6 +337,7 @@
             <button class="uncertainty">Plot precision/recall for uncertainty</button>
             <button class="sizePx">Plot precision/recall for synapse size</button>
             <button class="slices">Plot precision/recall for synapse slices</button>
+            <button class="contactPx">Plot precision/recall for contact area</button>
             <div style="width:600px; height:600px" class="plot"></div>
           </div>
         `;
@@ -486,6 +499,7 @@
     self.createConstraintSlider($constraints.find('.uncertainty'), 0, 1, 0.01);
     self.createConstraintSlider($constraints.find('.sizePx'), 0, 20000, 1);
     self.createConstraintSlider($constraints.find('.slices'), 0, 20, 1);
+    self.createConstraintSlider($constraints.find('.contactPx'), 0, 1000, 1);
 
     $constraints.find('.constraint-slider').css({
       width: '50%',
@@ -555,7 +569,20 @@
     $plots.on('click', '.slices', function (event) {
       emptyNode(plotContainer);
       var constraints = getPrecisionRecallConstants();
-      constraints.slices = {min: linspace(1, 10, 10, true)};
+      constraints.slices = {min: linspace(1, 10, 15, true)};
+      self.plotConstraintSweep(
+        plotContainer,
+        self.skeletonSource.getSelectedSkeletons(),
+        constraints,
+        '',
+        $downloadCheckbox.checked
+      );
+    });
+
+    $plots.on('click', '.contactPx', function (event) {
+      emptyNode(plotContainer);
+      var constraints = getPrecisionRecallConstants();
+      constraints.contactPx = {min: linspace(1, 900, 15, true)};
       self.plotConstraintSweep(
         plotContainer,
         self.skeletonSource.getSelectedSkeletons(),
@@ -767,7 +794,7 @@
     if (!constraints) {
       constraints = {};
     }
-    for (var constraintKey of ['uncertainty', 'sizePx', 'slices']) {
+    for (var constraintKey of ['uncertainty', 'sizePx', 'slices', 'contactPx']) {
       if (!constraints[constraintKey]) {
         constraints[constraintKey] = {};
       }
@@ -796,7 +823,9 @@
       synInfo.sizePx > constraints.sizePx.max ||
       synInfo.sizePx < constraints.sizePx.min ||
       synInfo.slices > constraints.slices.max ||
-      synInfo.slices < constraints.slices.min
+      synInfo.slices < constraints.slices.min ||
+      synInfo.contactPx > constraints.contactPx.max ||
+      synInfo.contactPx < constraints.contactPx.min
     );
   };
 
@@ -878,8 +907,24 @@
         results.detectionPrecision = results.totalDetected ? results.detectedAndTraced / results.totalDetected : 1;
         results.detectionRecall = results.totalTraced ? results.tracedAndDetected / results.totalTraced : 1;
 
+        results.f1 = fscore(results.detectionPrecision, results.detectionRecall, 1);
+        results.f2 = fscore(results.detectionPrecision, results.detectionRecall, 2);
+        results.f05 = fscore(results.detectionPrecision, results.detectionRecall, 0.5);
+
         return results;
       });
+  };
+
+  /**
+   *
+   * @param precision between 0 and 1
+   * @param recall between 0 and 1
+   * @param beta >0
+   * @return {number}
+   */
+  var fscore = function(precision, recall, beta) {
+    beta = beta || 1;
+    return (1 * beta**2) * precision * recall / ((beta**2 * precision) + recall)
   };
 
   /**
@@ -926,6 +971,7 @@
     var $uncertainty = $constraints.find('.uncertainty');
     var $sizePx = $constraints.find('.sizePx');
     var $slices = $constraints.find('.slices');
+    var $contactPx = $constraints.find('.contactPx');
     return {
       uncertainty: {
         min: Number($uncertainty.find('.min').text()),
@@ -938,6 +984,10 @@
       slices: {
         min: Number($slices.find('.min').text()),
         max: Number($slices.find('.max').text())
+      },
+      contactPx: {
+        min: Number($contactPx.find('.min').text()),
+        max: Number($contactPx.find('.max').text())
       }
     };
   };
@@ -958,13 +1008,15 @@
         document.getElementById(self.idPrefix + 'stitch-error').innerText = analysisResults.stitchingErrors;
         document.getElementById(self.idPrefix + 'detection-precision').innerText = analysisResults.detectionPrecision;
         document.getElementById(self.idPrefix + 'detection-recall').innerText = analysisResults.detectionRecall;
+        document.getElementById(self.idPrefix + 'f1-score').innerText = analysisResults.f1;
+        document.getElementById(self.idPrefix + 'f2-score').innerText = analysisResults.f2;
+        document.getElementById(self.idPrefix + 'f05-score').innerText = analysisResults.f05;
       });
   };
 
   var cartesianProductConstraints = function(constraintsArr, thisConstraintSet, allConstraintSets) {
     thisConstraintSet = thisConstraintSet || {};
     allConstraintSets = allConstraintSets || [];
-
 
     for (var constraintVal of constraintsArr[0][2]) {
       var newConstraintSet = Object.assign({}, thisConstraintSet);
