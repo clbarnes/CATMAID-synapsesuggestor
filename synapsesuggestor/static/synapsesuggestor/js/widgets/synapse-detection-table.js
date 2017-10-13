@@ -21,7 +21,7 @@
       min: 1,
       max: 20
     },
-    contactpx: {
+    contactPx: {
       min: 1,
       max: 800
     }
@@ -1119,8 +1119,8 @@
       var constraintObj = {};
       if (constraintName === 'uncertainty') {
         constraintObj.uncertainty = {
-            min: linspace(CONSTRAINT_RANGES.uncertainty.min, CONSTRAINT_RANGES.uncertainty.min, bins)
-          }
+          min: linspace(CONSTRAINT_RANGES.uncertainty.min, CONSTRAINT_RANGES.uncertainty.min, bins)
+        }
       } else {
         constraintObj[constraintName] = {
           max: linspace(CONSTRAINT_RANGES[constraintName].min, CONSTRAINT_RANGES[constraintName].max, bins, true)
