@@ -163,7 +163,7 @@ def get_intersecting_connectors(request, project_id=None):
         'connector_confidence', 'connector_creator',
         'relation_name', 'edge_confidence',
         'treenode_id', 'treenode_x', 'treenode_y', 'treenode_z',
-        'skeleton_id'
+        'skeleton_id', 'distance'
     ]
 
     tolerance = float(request.POST.get('tolerance', 0))
@@ -187,20 +187,25 @@ def get_intersecting_connectors(request, project_id=None):
         c.id, c.location_x, c.location_y, c.location_z, c.confidence, c.user_id,
         relation.relation_name, tc.confidence,
         tn.id, tn.location_x, tn.location_y, tn.location_z, 
-        tn.skeleton_id
+        tn.skeleton_id, obj_edge.dist
       FROM (
-        SELECT DISTINCT ss_so.synapse_object_id, tce.id
+        SELECT DISTINCT ss_so.synapse_object_id, tce.id, ST_Distance(tce.edge, ss_trans.geom_2d)
           FROM synapse_slice_synapse_object ss_so
           INNER JOIN synapse_slice ss
             ON ss_so.synapse_slice_id = ss.id
+          INNER JOIN (
+            SELECT ss2.id, ST_TransScale(ss2.geom_2d, %s, %s, %s, %s)
+              FROM synapse_slice ss2
+          ) AS ss_trans (id, geom_2d)
+            ON ss_trans.id = ss.id
           INNER JOIN synapse_detection_tile tile
             ON ss.synapse_detection_tile_id = tile.id
           INNER JOIN treenode_connector_edge tce
             ON (tile.z_tile_idx + %s) * %s BETWEEN ST_ZMin(tce.edge) AND ST_ZMax(tce.edge)
-            AND ST_DWithin(tce.edge, ST_TransScale(ss.geom_2d, %s, %s, %s, %s), %s)
+            AND ST_DWithin(tce.edge, ss_trans.geom_2d, %s)
           WHERE ss_so.synapse_object_id = ANY(%s::bigint[])
             AND tce.project_id = %s
-      ) as obj_edge (obj_id, tce_id)
+      ) AS obj_edge (obj_id, tce_id, dist)
       INNER JOIN treenode_connector tc
         ON tc.id = obj_edge.tce_id
       INNER JOIN relation
@@ -211,8 +216,9 @@ def get_intersecting_connectors(request, project_id=None):
         ON tc.treenode_id = tn.id
       WHERE relation.relation_name = ANY(ARRAY['presynaptic_to', 'postsynaptic_to']);
     ''', (
+        offset_xs, offset_ys, resolution[0], resolution[1],
         offset_zs, resolution[2],
-        offset_xs, offset_ys, resolution[0], resolution[1], tolerance,
+        tolerance,
         obj_ids, project_id
     ))
 
