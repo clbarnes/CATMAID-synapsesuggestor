@@ -293,3 +293,38 @@ def get_synapse_extents(request, project_id=None):
         }
 
     return JsonResponse(output)
+
+
+@api_view(['POST'])
+def get_partners(request, project_id=None):
+    # todo: document, test
+    syn_ids = get_request_list(request.POST, 'synapse_object_ids', tuple(), int)
+
+    response = {
+        'columns': ['synapse_object_id', 'tnids', 'skid', 'contact_px'],
+        'data': []
+    }
+
+    if not syn_ids:
+        return JsonResponse(response)
+
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        SELECT 
+            ss_so.synapse_object_id, array_agg(tn.id), tn.skeleton_id, sum(ss_tn.contact_px)
+          FROM synapse_slice_synapse_object ss_so
+          INNER JOIN (
+              SELECT unnest(%(syns)s::bigint[]) as id
+            ) syns
+            ON ss_so.synapse_object_id = syns.id
+          INNER JOIN synapse_slice_treenode ss_tn
+            ON ss_tn.synapse_slice_id = ss_so.synapse_slice_id
+          INNER JOIN treenode tn
+            ON tn.id = ss_tn.treenode_id
+          WHERE tn.project_id = %(pid)s
+          GROUP BY ss_so.synapse_object_id, tn.skeleton_id;
+    ''', {'pid': project_id, 'syns': syn_ids})
+
+    response['data'] = cursor.fetchall()
+    return JsonResponse(response)
