@@ -780,7 +780,7 @@
         ).then(function(response) {
           for (let responseRow of response.data) {
             const responseRowObj = objZip(response.columns, responseRow);
-            rowsObj[responseRowObj.synapse_id].associatedConnIDs.add(responseRowObj.connector_id);
+            rowsObj[responseRowObj.synapse_object_id].associatedConnIDs.add(responseRowObj.connector_id);
           }
           const rowsWithIntersecting = Object.keys(rowsObj)
             .sort(function(a, b) {return a - b;})

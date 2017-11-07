@@ -121,6 +121,12 @@ def get_skeleton_synapses(request, project_id=None):
 def get_intersecting_connectors(request, project_id=None):
     """
     Given a set of synapse objects, return information connectors and treenodes they may be associated with.
+
+    1 row per synapse object - connector intersection.
+    treenode_ids: array of treenodes which have edges to the connector
+    skeleton_ids: array of skeletons to which those treenodes belong
+    distance: shortest 2D distance from the synapse object to one of the edges associated with the connector
+
     ---
     parameters:
       - name: workflow_id
@@ -158,12 +164,9 @@ def get_intersecting_connectors(request, project_id=None):
     """
 
     columns = [
-        'synapse_id', 'connector_id',
-        'connector_x', 'connector_y', 'connector_z',
-        'connector_confidence', 'connector_creator',
-        'relation_name', 'edge_confidence',
-        'treenode_id', 'treenode_x', 'treenode_y', 'treenode_z',
-        'skeleton_id', 'distance'
+        'synapse_object_id',
+        'connector_id', 'connector_x', 'connector_y', 'connector_z', 'connector_confidence', 'connector_creator',
+        'skeleton_ids', 'treenode_ids', 'distance'
     ]
 
     tolerance = float(request.POST.get('tolerance', 0))
@@ -183,43 +186,47 @@ def get_intersecting_connectors(request, project_id=None):
     offset_xs, offset_ys, offset_zs = translation / resolution
 
     cursor.execute('''
-      SELECT obj_edge.obj_id,
-        c.id, c.location_x, c.location_y, c.location_z, c.confidence, c.user_id,
-        relation.relation_name, tc.confidence,
-        tn.id, tn.location_x, tn.location_y, tn.location_z, 
-        tn.skeleton_id, obj_edge.dist
+      SELECT syn_con.syn_id, syn_con.c_id, syn_con.c_x, syn_con.c_y, syn_con.c_z, syn_con.c_conf, syn_con.c_user,
+        array_agg(tn.skeleton_id), array_agg(tn.id), syn_con.min_dist
       FROM (
-        SELECT DISTINCT ss_so.synapse_object_id, tce.id, ST_Distance(tce.edge, ss_trans.geom_2d)
-          FROM synapse_slice_synapse_object ss_so
-          INNER JOIN synapse_slice ss
-            ON ss_so.synapse_slice_id = ss.id
-          INNER JOIN (
-            SELECT ss2.id, ST_TransScale(ss2.geom_2d, %s, %s, %s, %s)
-              FROM synapse_slice ss2
-          ) AS ss_trans (id, geom_2d)
-            ON ss_trans.id = ss.id
-          INNER JOIN synapse_detection_tile tile
-            ON ss.synapse_detection_tile_id = tile.id
-          INNER JOIN treenode_connector_edge tce
-            ON (tile.z_tile_idx + %s) * %s BETWEEN ST_ZMin(tce.edge) AND ST_ZMax(tce.edge)
-            AND ST_DWithin(tce.edge, ss_trans.geom_2d, %s)
-          WHERE ss_so.synapse_object_id = ANY(%s::bigint[])
-            AND tce.project_id = %s
-      ) AS obj_edge (obj_id, tce_id, dist)
-      INNER JOIN treenode_connector tc
-        ON tc.id = obj_edge.tce_id
-      INNER JOIN relation
-        ON tc.relation_id = relation.id
-      INNER JOIN connector c
-        ON c.id = tc.connector_id
+        SELECT 
+          ss_so.synapse_object_id, 
+          c.id, c.location_x, c.location_y, c.location_z, c.confidence, c.user_id, 
+          min(ST_Distance(tce.edge, ss_trans.geom_2d))
+        FROM synapse_slice_synapse_object ss_so
+        INNER JOIN unnest(%s::BIGINT[]) AS syns (id)
+          ON ss_so.synapse_object_id = syns.id
+        INNER JOIN (
+          SELECT ss.id, ss.synapse_detection_tile_id, ST_TransScale(ss.geom_2d, %s, %s, %s, %s)
+            FROM synapse_slice ss
+        ) AS ss_trans (id, synapse_detection_tile_id, geom_2d)
+          ON ss_trans.id = ss_so.synapse_slice_id
+        INNER JOIN synapse_detection_tile tile
+          ON ss_trans.synapse_detection_tile_id = tile.id
+        INNER JOIN treenode_connector_edge tce
+          ON (tile.z_tile_idx + %s) * %s BETWEEN ST_ZMin(tce.edge) AND ST_ZMax(tce.edge)
+          AND ST_DWithin(tce.edge, ss_trans.geom_2d, %s)
+        INNER JOIN treenode_connector tc
+          ON tc.id = tce.id
+        INNER JOIN relation
+          ON tc.relation_id = relation.id
+        INNER JOIN connector c
+          ON c.id = tc.connector_id
+        WHERE tce.project_id = %s
+          AND relation.relation_name = ANY(ARRAY['presynaptic_to', 'postsynaptic_to'])
+        GROUP BY ss_so.synapse_object_id, c.id
+      ) AS syn_con (syn_id, c_id, c_x, c_y, c_z, c_conf, c_user, min_dist)
+      INNER JOIN treenode_connector tc2
+        ON tc2.connector_id = syn_con.c_id
       INNER JOIN treenode tn
-        ON tc.treenode_id = tn.id
-      WHERE relation.relation_name = ANY(ARRAY['presynaptic_to', 'postsynaptic_to']);
+        ON tc2.treenode_id = tn.id
+      GROUP BY syn_con.syn_id, syn_con.c_id, syn_con.c_x, syn_con.c_y, syn_con.c_z, syn_con.c_conf, syn_con.c_user, syn_con.min_dist;
     ''', (
+        obj_ids,
         offset_xs, offset_ys, resolution[0], resolution[1],
         offset_zs, resolution[2],
         tolerance,
-        obj_ids, project_id
+        project_id
     ))
 
     return JsonResponse({'columns': columns, 'data': cursor.fetchall()})
@@ -314,9 +321,7 @@ def get_partners(request, project_id=None):
         SELECT 
             ss_so.synapse_object_id, array_agg(tn.id), tn.skeleton_id, sum(ss_tn.contact_px)
           FROM synapse_slice_synapse_object ss_so
-          INNER JOIN (
-              SELECT unnest(%(syns)s::bigint[]) as id
-            ) syns
+          INNER JOIN unnest(%(syns)s::bigint[]) AS syns(id)
             ON ss_so.synapse_object_id = syns.id
           INNER JOIN synapse_slice_treenode ss_tn
             ON ss_tn.synapse_slice_id = ss_so.synapse_slice_id

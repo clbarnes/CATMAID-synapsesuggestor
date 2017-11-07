@@ -116,6 +116,8 @@ class AnalysisApiTests(SynapseSuggestorTestCase):
         self.assertEqual(response.status_code, 200)
         parsed_response = json.loads(response.content.decode('utf-8'))
 
+        print(parsed_response)
+
         if parsed_response['data']:
             self.assertEqual(len(parsed_response['columns']), len(parsed_response['data'][0]))
 
@@ -131,10 +133,10 @@ class AnalysisApiTests(SynapseSuggestorTestCase):
 
         response_dict = dict(zip(parsed_response['columns'], parsed_response['data'][0]))
 
-        self.assertEqual(response_dict['synapse_id'], self.test_syn_obj_id)
+        self.assertEqual(response_dict['synapse_object_id'], self.test_syn_obj_id)
         self.assertEqual(response_dict['connector_id'], tc_info['connector_id'])
-        self.assertEqual(response_dict['treenode_id'], tc_info['treenode_id'])
-        self.assertEqual(response_dict['skeleton_id'], tc_info['skeleton_id'])
+        self.assertEqual(response_dict['treenode_ids'], [tc_info['treenode_id']])
+        self.assertEqual(response_dict['skeleton_ids'], [tc_info['skeleton_id']])
 
     def get_synapse_extents(self, synapse_object_ids=None, z_padding=None, xy_padding=None):
         if synapse_object_ids is None:
