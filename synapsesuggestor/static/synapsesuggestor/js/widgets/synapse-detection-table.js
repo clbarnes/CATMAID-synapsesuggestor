@@ -5,10 +5,10 @@
 
   "use strict";
 
-  var CACHE_TIMEOUT = 30*60*1000;  // 30 minutes
-  var URL_BASE = '/ext/synapsesuggestor';
+  const CACHE_TIMEOUT = 30*60*1000;  // 30 minutes
+  const URL_BASE = '/ext/synapsesuggestor';
 
-  var CONSTRAINT_RANGES = {
+  const CONSTRAINT_RANGES = {
     uncertainty: {
       min: 0,
       max: 1
@@ -28,11 +28,11 @@
   };
 
 
-  var SynapseDetectionTable = function() {
+  const SynapseDetectionTable = function() {
     this.widgetID = this.registerInstance();
     this.idPrefix = `synapse-detection-table${this.widgetID}-`;
 
-    var update = this.update.bind(this);
+    const update = this.update.bind(this);
 
     /**
      * Skeleton source which is registered and other widgets can use
@@ -105,14 +105,13 @@
    *
    * @param utcStr
    */
-  var utcStrToLocalTime = function(utcStr) {
-    var d = new Date(utcStr);
-    var year, month, day, hour, minute;
-    year = d.getFullYear();
-    month = String(d.getMonth()+1).padStart(2, 0);
-    day = String(d.getDate()).padStart(2, 0);
-    hour = String(d.getHours()).padStart(2, 0);
-    minute = String(d.getMinutes()).padStart(2, 0);
+  const utcStrToLocalTime = function(utcStr) {
+    const d = new Date(utcStr);
+    const year = d.getFullYear();
+    const month = String(d.getMonth()+1).padStart(2, 0);
+    const day = String(d.getDate()).padStart(2, 0);
+    const hour = String(d.getHours()).padStart(2, 0);
+    const minute = String(d.getMinutes()).padStart(2, 0);
     return `${year}-${month}-${day} ${hour}:${minute}`;
   };
 
@@ -124,16 +123,17 @@
    * @return {*|null}
    */
   SynapseDetectionTable.prototype.setWorkflowInfoFromSelect = function() {
-    var value = document.getElementById(this.idPrefix + 'algo-select').value;
-    for (var workflowInfo of this.workflowInfoOptions) {
+    const value = document.getElementById(this.idPrefix + 'algo-select').value;
+    let flag = false;
+    for (let workflowInfo of this.workflowInfoOptions) {
       if (`${workflowInfo.detection_algo_hash}-${workflowInfo.association_algo_hash}` === value) {
         this.workflowInfo = workflowInfo;
-        var flag = true;
+        flag = true;
         break;
       }
     }
     if (!flag) {
-      this.workflowInfo = this.workflowInfo || this.workflowInfoOptions[0]
+      this.workflowInfo = this.workflowInfo || this.workflowInfoOptions[0];
     }
 
     return this.workflowInfo;
@@ -143,9 +143,9 @@
    * Populates the algorithm select box with the algorithm combinations in this.workflowInfoOptions.
    */
   SynapseDetectionTable.prototype.repopulateAlgoSelect = function() {
-    var self = this;
+    const self = this;
 
-    var select = document.getElementById(self.idPrefix + 'algo-select');
+    const select = document.getElementById(self.idPrefix + 'algo-select');
     while (select.lastChild) {
       select.removeChild(select.lastChild);
     }
@@ -155,7 +155,7 @@
     }
 
     this.workflowInfoOptions.forEach(function(item, i) {
-      var option = document.createElement("option");
+      const option = document.createElement("option");
       option.text = `${item.detection_algo_hash.slice(0, 7)} (${utcStrToLocalTime(item.detection_algo_date)}) & ` +
         `${item.association_algo_hash.slice(0, 7)} (${utcStrToLocalTime(item.association_algo_date)})`;
       option.value = `${item.detection_algo_hash}-${item.association_algo_hash}`;
@@ -169,26 +169,26 @@
       }
       select.appendChild(option);
     });
-    self.setWorkflowInfoFromSelect()
+    self.setWorkflowInfoFromSelect();
   };
 
   SynapseDetectionTable.prototype.getWidgetConfiguration = function() {
-    var self = this;
-    var tableID = this.idPrefix + 'datatable';
+    const self = this;
+    const tableID = this.idPrefix + 'datatable';
     return {
       helpText: 'Synapse Detection Table widget: See automatically detected synapses for given skeleton(s)',
       controlsID: this.idPrefix + 'controls',
       createControls: function(controls) {
-        var sourceControls = document.createElement('label');
+        const sourceControls = document.createElement('label');
         sourceControls.title = '0 skeletons selected';
         sourceControls.id = self.idPrefix + 'source-controls';
         controls.append(sourceControls);
 
-        var sourceSelect = CATMAID.skeletonListSources.createSelect(this.skeletonSource,
+        const sourceSelect = CATMAID.skeletonListSources.createSelect(this.skeletonSource,
           [this.skeletonSource.getName()]);
         sourceControls.appendChild(sourceSelect);
 
-        var add = document.createElement('input');
+        const add = document.createElement('input');
         add.setAttribute("type", "button");
         add.setAttribute("value", "Add");
         add.onclick = function() {
@@ -196,7 +196,7 @@
         };
         sourceControls.appendChild(add);
 
-        var clear = document.createElement('input');
+        const clear = document.createElement('input');
         clear.setAttribute("type", "button");
         clear.setAttribute("value", "Clear");
         clear.onclick = function() {
@@ -205,7 +205,7 @@
         };
         sourceControls.appendChild(clear);
 
-        var refresh = document.createElement('input');
+        const refresh = document.createElement('input');
         refresh.setAttribute("type", "button");
         refresh.setAttribute("value", "Refresh");
         refresh.onclick = function() {
@@ -214,23 +214,23 @@
         };
         controls.appendChild(refresh);
 
-        var algoLabel = document.createElement('label');
+        const algoLabel = document.createElement('label');
         algoLabel.appendChild(document.createTextNode('Algorithms:'));
         algoLabel.title = 'Algorithm combination used to detect synapses and associate them with skeletons';
         controls.appendChild(algoLabel);
 
-        var algoSelect = document.createElement('select');
+        const algoSelect = document.createElement('select');
         algoSelect.id = self.idPrefix + 'algo-select';
         algoSelect.addEventListener('change', self.update.bind(self, true));
         algoLabel.appendChild(algoSelect);
 
-        var toleranceLabel = document.createElement('label');
+        const toleranceLabel = document.createElement('label');
         toleranceLabel.appendChild(document.createTextNode('Tolerance (nm):'));
         toleranceLabel.title = '2D spatial tolerance, in nm, for determining whether a connector edge is associated' +
           ' with a synapse';
         controls.appendChild(toleranceLabel);
 
-        var toleranceInput = document.createElement('input');
+        const toleranceInput = document.createElement('input');
         toleranceInput.id = self.idPrefix + 'tolerance';
         toleranceInput.type = 'text';
         toleranceInput.size = 4;
@@ -240,7 +240,7 @@
         toleranceInput.addEventListener('change', self.update.bind(self, true));
         toleranceLabel.append(toleranceInput);
 
-        var jsonButton = document.createElement('button');
+        const jsonButton = document.createElement('button');
         jsonButton.innerText = 'Download cache dump';
         jsonButton.onclick = function() {
           saveAs(new Blob([JSON.stringify(self.cache, null, 2)], {type: 'text/json'}), 'syndetcache.json');
@@ -377,17 +377,17 @@
    */
   SynapseDetectionTable.prototype.getWorkflowInfo = function() {
     if (this.workflowInfo) {
-      return Promise.resolve(this.workflowInfo)
+      return Promise.resolve(this.workflowInfo);
     } else {
-      var self = this;
-      var stackId = project.getStackViewers()[0].primaryStack.id;
+      const self = this;
+      const stackId = project.getStackViewers()[0].primaryStack.id;
       return CATMAID.fetch(`${URL_BASE}/analysis/${project.id}/workflow-info`, 'GET', {stack_id: stackId})
         .then(function(response) {
           self.workflowInfoOptions = response.workflows;
           self.workflowInfo = self.workflowInfo || response.workflows[0];
           self.repopulateAlgoSelect();
           return self.workflowInfo;
-        })
+        });
     }
   };
 
@@ -397,12 +397,12 @@
    * Populate the algorithm select element, draw the table, and add listeners to buttons.
    */
   SynapseDetectionTable.prototype.init = function() {
-    var self = this;
-    var tableID = this.idPrefix + 'datatable';
+    const self = this;
+    const tableID = this.idPrefix + 'datatable';
 
     self.getWorkflowInfo();
 
-    var $table = $('#' + tableID);
+    const $table = $('#' + tableID);
 
     this.oTable = $table.DataTable({
       // http://www.datatables.net/usage/options
@@ -480,7 +480,7 @@
         event.stopPropagation();
         event.preventDefault();
         // Filter with a regular expression
-        var filter_connID = event.currentTarget.value;
+        const filter_connID = event.currentTarget.value;
         self.oTable
           .column(event.currentTarget.closest('th'))
           .search(` ${filter_connID} `, false, false)
@@ -488,7 +488,7 @@
       }
     });
 
-    var $headerInput = $table.find('thead input');
+    const $headerInput = $table.find('thead input');
 
     // prevent sorting the column when focusing on the search field
     $headerInput.click(function (event) {
@@ -504,10 +504,10 @@
     });
 
     $table.on("dblclick", "tbody tr", function () {
-      var rowData = self.oTable.row(this).data();
-      var coords = rowData.coords;
+      const rowData = self.oTable.row(this).data();
+      const coords = rowData.coords;
 
-      var stackViewer = project.getStackViewers()[0];
+      const stackViewer = project.getStackViewers()[0];
 
       stackViewer.moveToPixel(
         'z' in coords ? coords.z : stackViewer.z,
@@ -518,7 +518,7 @@
 
     });
 
-    var $constraints = $(`#${self.idPrefix}constraints`);
+    const $constraints = $(`#${self.idPrefix}constraints`);
     self.createConstraintSlider($constraints.find('.uncertainty'), 0, 1, 0.01);
     self.createConstraintSlider($constraints.find('.sizePx'), 0, 20000, 1);
     self.createConstraintSlider($constraints.find('.slices'), 0, 20, 1);
@@ -532,16 +532,16 @@
 
     $constraints.find('.ui-slider-range').css('background', '#0000ff');
 
-    var $plots = $(`#${self.idPrefix}plots`);
-    var plotContainer = $plots.find('.plot')[0];
-    var $downloadCheckbox = $plots.find('.download-checkbox')[0];
-    var $binsInput = $plots.find('.bins-input')[0];
+    const $plots = $(`#${self.idPrefix}plots`);
+    const plotContainer = $plots.find('.plot')[0];
+    const $downloadCheckbox = $plots.find('.download-checkbox')[0];
+    const $binsInput = $plots.find('.bins-input')[0];
 
-    var $sweepConstants = $(`#${self.idPrefix}sweep-constants`);
+    const $sweepConstants = $(`#${self.idPrefix}sweep-constants`);
 
-    var getPrecisionRecallConstants = function () {
-      var obj = {};
-      var val;
+    const getPrecisionRecallConstants = function () {
+      const obj = {};
+      let val;
 
       // uncertainty
       val = Number($sweepConstants.find('.uncertainty').val());
@@ -564,19 +564,19 @@
       return obj;
     };
 
-    var plotFnFactory = function (attribute) {
+    const plotFnFactory = function (attribute) {
       return function (event) {
         emptyNode(plotContainer);
-        var constraints = getPrecisionRecallConstants();
-        var bins = Number($binsInput.value);
+        const constraints = getPrecisionRecallConstants();
+        const bins = Number($binsInput.value);
         if (attribute === 'uncertainty') {
           constraints.uncertainty = {
             min: linspace(CONSTRAINT_RANGES.uncertainty.min, CONSTRAINT_RANGES.uncertainty.min, bins)
-          }
+          };
         } else {
           constraints[attribute] = {
             max: linspace(CONSTRAINT_RANGES[attribute].min, CONSTRAINT_RANGES[attribute].max, bins, true)
-          }
+          };
         }
 
         self.plotConstraintSweep(
@@ -601,7 +601,7 @@
         self.skeletonSource.getSelectedSkeletons(),
         Number($binsInput.value)
       );
-    })
+    });
   };
 
   /**
@@ -610,7 +610,7 @@
    * @param element
    * @return {*}
    */
-  var emptyNode = function(element) {
+  const emptyNode = function(element) {
     while (element.lastChild) {
       element.removeChild(element.lastChild);
     }
@@ -627,15 +627,15 @@
    * @param round
    * @return {[*]}
    */
-  var linspace = function(start, stop, count, round) {
-    var out = [start];
-    var step = (stop - start) / (count-1);
-    var previous = start;
-    for (var i = 1; i < count-1; i++) {
+  const linspace = function(start, stop, count, round) {
+    const out = [start];
+    const step = (stop - start) / (count-1);
+    let previous = start;
+    for (let i = 1; i < count-1; i++) {
       start += step;
-      var value = round ? Math.round(start) : start;
+      const value = round ? Math.round(start) : start;
       if (value !== previous && value !== stop) {
-        out.push(value)
+        out.push(value);
       }
       previous = value;
     }
@@ -652,9 +652,9 @@
    * @param step
    */
   SynapseDetectionTable.prototype.createConstraintSlider = function($container, min, max, step) {
-    var self = this;
+    const self = this;
 
-    var $slider = $container.find('.constraint-slider');
+    const $slider = $container.find('.constraint-slider');
     $slider.slider({
       range: true,
       min: min,
@@ -674,12 +674,12 @@
   };
 
   SynapseDetectionTable.prototype.setSkelSourceText = function() {
-    var count = this.skeletonSource.getNumberOfSkeletons();
-    var element = document.getElementById(this.idPrefix + 'source-controls');
+    const count = this.skeletonSource.getNumberOfSkeletons();
+    const element = document.getElementById(this.idPrefix + 'source-controls');
     element.title = `${count} skeleton${count === 1 ? '' : 's'} selected`;
   };
 
-  var connResponseToConnEdgeInfo = function(connEdgeResponse) {
+  const connResponseToConnEdgeInfo = function(connEdgeResponse) {
     return {
       connID: connEdgeResponse[0],
       coords: {
@@ -694,7 +694,7 @@
   };
 
   SynapseDetectionTable.prototype.getConnectorsForSkel = function(skelID) {
-    var self = this;
+    const self = this;
 
     if (this.cache[skelID]) {
       if (this.cache[skelID].connectors && Date.now() - this.cache[skelID].connectors.timestamp <= CACHE_TIMEOUT) {
@@ -704,11 +704,11 @@
       this.cache[skelID] = {detections: {}, connectors: {}};
     }
 
-    var promises = ['presynaptic_to', 'postsynaptic_to'].map(function(relationType) {
+    const promises = ['presynaptic_to', 'postsynaptic_to'].map(function(relationType) {
       return CATMAID.fetch(
         project.id + '/connectors', 'GET', {skeleton_ids: [skelID], relation_type: relationType, with_tags: false}
       ).then(function(response) {
-        var outObj = response.links.reduce(function(obj, row) {
+        const outObj = response.links.reduce(function(obj, row) {
           obj[row[1]] = {connID: row[1], relationType: relationType};
           return obj;
         }, {});
@@ -730,16 +730,16 @@
    * @param values
    * @return {{}}
    */
-  var objZip = function(keys, values) {
-    var obj = {};
-    for (var i = 0; i < Math.min(keys.length, values.length); i++) {
-      obj[keys[i]] = values[i]
+  const objZip = function(keys, values) {
+    const obj = {};
+    for (let i = 0; i < Math.min(keys.length, values.length); i++) {
+      obj[keys[i]] = values[i];
     }
     return obj;
   };
 
   SynapseDetectionTable.prototype.getSynapsesForSkel = function(skelID) {
-    var self = this;
+    const self = this;
 
     if (this.cache[skelID]) {
       if (this.cache[skelID].detections && Date.now() - this.cache[skelID].detections.timestamp <= CACHE_TIMEOUT) {
@@ -754,7 +754,7 @@
       {skeleton_id: skelID, workflow_id: self.workflowInfo.workflow_id}
       ).then(function(response){
         return response.data.reduce(function (obj, responseRow) {
-          var responseRowObj = objZip(response.columns, responseRow);
+          const responseRowObj = objZip(response.columns, responseRow);
           obj[responseRowObj.synapse] = {
             detectedSynapseID: responseRowObj.synapse,
             coords: {
@@ -773,18 +773,18 @@
           return obj;
         }, {});
       }).then(function (rowsObj) {
-        var tolerance = Number(document.getElementById(self.idPrefix + 'tolerance').value);
+        const tolerance = Number(document.getElementById(self.idPrefix + 'tolerance').value);
         return CATMAID.fetch(
           `${URL_BASE}/analysis/${project.id}/intersecting-connectors`, 'POST',
           {workflow_id: self.workflowInfo.workflow_id, synapse_object_ids: Object.keys(rowsObj), tolerance: tolerance}
         ).then(function(response) {
-          for (var responseRow of response.data) {
-            var responseRowObj = objZip(response.columns, responseRow);
+          for (let responseRow of response.data) {
+            const responseRowObj = objZip(response.columns, responseRow);
             rowsObj[responseRowObj.synapse_id].associatedConnIDs.add(responseRowObj.connector_id);
           }
-          var rowsWithIntersecting = Object.keys(rowsObj)
+          const rowsWithIntersecting = Object.keys(rowsObj)
             .sort(function(a, b) {return a - b;})
-            .map(function(synID) {return rowsObj[synID]});
+            .map(function(synID) {return rowsObj[synID];});
 
           self.cache[skelID].detections = {
             timestamp: Date.now(),
@@ -792,12 +792,12 @@
           };
 
           return rowsWithIntersecting;
-        })
+        });
     });
   };
 
   SynapseDetectionTable.prototype.getConnectorsSynapsesForSkel = function(skelID) {
-    var self = this;
+    const self = this;
     return Promise.all([self.getConnectorsForSkel(skelID), self.getSynapsesForSkel(skelID)])
       .then(function(resultsPair) {
         return {
@@ -807,11 +807,11 @@
       });
   };
 
-  var fillOutConstraints = function(constraints) {
+  const fillOutConstraints = function(constraints) {
     if (!constraints) {
       constraints = {};
     }
-    for (var constraintKey of ['uncertainty', 'sizePx', 'slices', 'contactPx']) {
+    for (let constraintKey of ['uncertainty', 'sizePx', 'slices', 'contactPx']) {
       if (!constraints[constraintKey]) {
         constraints[constraintKey] = {};
       }
@@ -833,7 +833,7 @@
    * @param synInfo
    * @param constraints
    */
-  var shouldSkipSynapse = function(synInfo, constraints){
+  const shouldSkipSynapse = function(synInfo, constraints){
     return (
       synInfo.uncertainty > constraints.uncertainty.max ||
       synInfo.uncertainty < constraints.uncertainty.min ||
@@ -861,22 +861,22 @@
    * @return {Promise.<TResult>}
    */
   SynapseDetectionTable.prototype.analyse = function(skelIDs, constraints) {
-    var self = this;
+    const self = this;
 
     constraints = fillOutConstraints(constraints);
 
     return Promise.all(skelIDs.map(self.getConnectorsSynapsesForSkel.bind(self)))
       .then(function(dataBySkel) {
-        var results = {constraints: constraints};
+        const results = {constraints: constraints};
 
-        var data = dataBySkel.reduce(function(obj, resultsForSkel) {
+        const data = dataBySkel.reduce(function(obj, resultsForSkel) {
           return {
             connectors: obj.connectors.concat(resultsForSkel.connectors),
             detections: obj.detections.concat(resultsForSkel.detections)
           };
         }, {connectors: [], detections: []});
 
-        var connSet = data.connectors.reduce(function(set, connInfo) {
+        const connSet = data.connectors.reduce(function(set, connInfo) {
           return set.add(connInfo.connID);
         }, new Set());
 
@@ -888,19 +888,19 @@
 
         results.multiAnnotatedSynapses = 0;
 
-        var detectedConns = new Map();
+        const detectedConns = new Map();
 
-        for (var detection of data.detections) {
+        for (let detection of data.detections) {
           if (shouldSkipSynapse(detection, constraints)) {
             continue;
           }
 
           results.totalDetected += 1;
-          var intersection = connSet.intersection(detection.associatedConnIDs);
+          const intersection = connSet.intersection(detection.associatedConnIDs);
 
           if (intersection.size > 0) {
             results.detectedAndTraced += 1;
-            for (var connID of intersection) {
+            for (let connID of intersection) {
               detectedConns.set(connID, (detectedConns.get(connID) || 0) + 1);
             }
           }
@@ -912,7 +912,7 @@
 
         results.tracedAndDetected = results.totalTraced;
         results.stitchingErrors = 0;
-        for (var connector of data.connectors) {
+        for (let connector of data.connectors) {
           if (!detectedConns.has(connector.connID)) {
             results.tracedAndDetected -= 1;
           } else {
@@ -939,9 +939,9 @@
    * @param beta >0
    * @return {number}
    */
-  var fscore = function(precision, recall, beta) {
+  const fscore = function(precision, recall, beta) {
     beta = beta || 1;
-    return (1 * beta**2) * precision * recall / ((beta**2 * precision) + recall)
+    return (1 + beta*beta) * precision * recall / ((beta*beta * precision) + recall);
   };
 
   /**
@@ -952,19 +952,19 @@
    * @return {Promise.<TResult>}
    */
   SynapseDetectionTable.prototype.quickAnalyse = function(skelIDs, constraints) {
-    var self = this;
+    const self = this;
 
     constraints = fillOutConstraints(constraints);
 
     return Promise.all(skelIDs.map(self.getConnectorsSynapsesForSkel.bind(self)))
       .then(function(dataBySkel) {
-        var connSet = new Set();
-        var detectedConns = new Set();
-        var detectedSet = new Set();
+        const connSet = new Set();
+        const detectedConns = new Set();
+        const detectedSet = new Set();
 
         dataBySkel.forEach(function (resultsForSkel) {
           connSet.addAll(resultsForSkel.connectors.map(function(item) {return item.connID;}));
-          for (var synapseInfo of resultsForSkel.detections) {
+          for (let synapseInfo of resultsForSkel.detections) {
             if (shouldSkipSynapse(synapseInfo, constraints)) {
               continue;
             }
@@ -983,12 +983,12 @@
   };
 
   SynapseDetectionTable.prototype.getAnalysisConstraints = function() {
-    var self = this;
-    var $constraints = $(`#${self.idPrefix}constraints`);
-    var $uncertainty = $constraints.find('.uncertainty');
-    var $sizePx = $constraints.find('.sizePx');
-    var $slices = $constraints.find('.slices');
-    var $contactPx = $constraints.find('.contactPx');
+    const self = this;
+    const $constraints = $(`#${self.idPrefix}constraints`);
+    const $uncertainty = $constraints.find('.uncertainty');
+    const $sizePx = $constraints.find('.sizePx');
+    const $slices = $constraints.find('.slices');
+    const $contactPx = $constraints.find('.contactPx');
     return {
       uncertainty: {
         min: Number($uncertainty.find('.min').text()),
@@ -1010,10 +1010,10 @@
   };
 
   SynapseDetectionTable.prototype.populateAnalysisResults = function() {
-    var self = this;
+    const self = this;
 
-    var skels = self.skeletonSource.getSelectedSkeletons();
-    var constraints = self.getAnalysisConstraints();
+    const skels = self.skeletonSource.getSelectedSkeletons();
+    const constraints = self.getAnalysisConstraints();
 
     self.analyse(skels, constraints)
       .then(function (analysisResults) {
@@ -1031,12 +1031,12 @@
       });
   };
 
-  var cartesianProductConstraints = function(constraintsArr, thisConstraintSet, allConstraintSets) {
+  const cartesianProductConstraints = function(constraintsArr, thisConstraintSet, allConstraintSets) {
     thisConstraintSet = thisConstraintSet || {};
     allConstraintSets = allConstraintSets || [];
 
-    for (var constraintVal of constraintsArr[0][2]) {
-      var newConstraintSet = Object.assign({}, thisConstraintSet);
+    for (let constraintVal of constraintsArr[0][2]) {
+      const newConstraintSet = Object.assign({}, thisConstraintSet);
       newConstraintSet[constraintsArr[0][0]] = newConstraintSet[constraintsArr[0][0]] || {};
       newConstraintSet[constraintsArr[0][0]][constraintsArr[0][1]] = constraintVal;
       if (constraintsArr.length < 2) {
@@ -1049,11 +1049,11 @@
     return allConstraintSets;
   };
 
-  var getConstraintsSweep = function(constraints) {
-    var constraintsArr = [];  // [[constraint, end, arr], ...]
+  const getConstraintsSweep = function(constraints) {
+    const constraintsArr = [];  // [[constraint, end, arr], ...]
 
-    for (var constraint of Object.keys(constraints).sort()) {
-      for (var end of Object.keys(constraints[constraint]).sort()) {
+    for (let constraint of Object.keys(constraints).sort()) {
+      for (let end of Object.keys(constraints[constraint]).sort()) {
         if (Array.isArray(constraints[constraint][end])) {
           constraintsArr.push([constraint, end, constraints[constraint][end]]);
         }
@@ -1064,8 +1064,8 @@
   };
 
   SynapseDetectionTable.prototype.sweepConstraints = function(skelIDs, constraintsToSweep) {
-    var self = this;
-    var promises = getConstraintsSweep(constraintsToSweep).map(function(constraintsObj) {
+    const self = this;
+    const promises = getConstraintsSweep(constraintsToSweep).map(function(constraintsObj) {
       return self.analyse(skelIDs, constraintsObj);
     });
     return Promise.all(promises);
@@ -1080,7 +1080,7 @@
           saveAs(new Blob([JSON.stringify(analysisResults, null, 2)], {type: 'text/json'}), 'analysisresults.json');
         }
 
-        var precisionRecall = analysisResults.reduce(
+        const precisionRecall = analysisResults.reduce(
           function(accumulator, currentValue){
             accumulator.y.push(currentValue.detectionPrecision);
             accumulator.x.push(currentValue.detectionRecall);
@@ -1114,17 +1114,17 @@
   };
 
   SynapseDetectionTable.prototype.plotAllPrecRecCurves = function(container, skelIDs, bins) {
-    var self = this;
-    var linePromises = Object.keys(CONSTRAINT_RANGES).map(function(constraintName){
-      var constraintObj = {};
+    const self = this;
+    const linePromises = Object.keys(CONSTRAINT_RANGES).map(function(constraintName){
+      const constraintObj = {};
       if (constraintName === 'uncertainty') {
         constraintObj.uncertainty = {
           max: linspace(CONSTRAINT_RANGES.uncertainty.min, CONSTRAINT_RANGES.uncertainty.max, bins)
-        }
+        };
       } else {
         constraintObj[constraintName] = {
           min: linspace(CONSTRAINT_RANGES[constraintName].min, CONSTRAINT_RANGES[constraintName].max, bins, true)
-        }
+        };
       }
 
       return self.sweepConstraints(skelIDs, constraintObj).then(function(analysisResults) {
@@ -1134,7 +1134,7 @@
             return accumulator;
           }, {y: [], x: [], type: 'lines+markers', name: constraintName}
         );
-      })
+      });
     });
 
     Promise.all(linePromises).then(function(lines) {
@@ -1163,7 +1163,7 @@
   };
 
   SynapseDetectionTable.prototype.update = function(forceRefresh) {
-    var self = this;
+    const self = this;
     if (forceRefresh) {
       self.cache = {};
     }
@@ -1176,7 +1176,7 @@
           .getSelectedSkeletons()
           .map(self.getSynapsesForSkel.bind(self))
       ).then(function(rowsArr) {
-        for (var rowObjs of rowsArr) {
+        for (let rowObjs of rowsArr) {
           self.oTable.rows.add(rowObjs);
         }
         self.populateAnalysisResults();
