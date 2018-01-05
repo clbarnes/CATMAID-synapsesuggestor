@@ -255,10 +255,12 @@
           <table cellpadding="0" cellspacing="0" border="0" class="display" id="${tableID}"> 
             <thead> 
               <tr> 
-                <th>detected synapse ID</th> 
+                <th>detected synapse ID
+                  <input type="text" name="searchSynId" id="${self.idPrefix}search-syn-id"
+                    value="Search" class="search_init"/></th>
                 <th>skeleton ID 
-                  <input type="text" name="searchSkelId" id="${self.idPrefix}search-skel-id" 
-                    value="Search" class="search_init"/> 
+                  <input type="text" name="searchSkelId" id="${self.idPrefix}search-skel-id"
+                    value="Search" class="search_init"/>
                 </th> 
                 <th>uncertainty</th> 
                 <th>size (px)</th> 
@@ -422,6 +424,7 @@
           data: 'detectedSynapseID',
           render: Math.floor,
           orderable: true,
+          searchable: true,
           className: "center"
         },
         {
@@ -474,6 +477,24 @@
         }
       ]
     });
+
+    const exactNumSearch = function(event) {
+      if (event.which == 13) {
+        event.stopPropagation();
+        event.preventDefault();
+        // Filter with a regular expression
+        const filterValue = event.currentTarget.value;
+        const regex = filterValue === '' ? '' : `^${filterValue}$`;
+
+        self.oTable
+          .column(event.currentTarget.closest('th'))
+          .search(regex, true, false)
+          .draw();
+      }
+    };
+
+    $(`#${self.idPrefix}search-syn-id`).keydown(exactNumSearch);
+    $(`#${self.idPrefix}search-skel-id`).keydown(exactNumSearch);
 
     $(`#${self.idPrefix}search-conn-id`).keydown(function (event) {
       if (event.which == 13) {
