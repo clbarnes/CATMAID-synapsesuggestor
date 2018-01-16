@@ -12,7 +12,7 @@ from rest_framework.decorators import api_view
 from catmaid.control.common import get_request_list
 
 from synapsesuggestor.control.common import get_most_recent_project_SS_workflow, get_translation_resolution
-from synapsesuggestor.models import ProjectSynapseSuggestionWorkflow, SynapseSuggestionWorkflow
+from synapsesuggestor.models import ProjectSynapseSuggestionWorkflow
 
 
 @api_view(['GET'])
@@ -141,8 +141,14 @@ def get_intersecting_connectors(request, project_id=None):
             type: integer
         paramType: form
         required: false
+      - name: mode
+        description: > 'edge' or 'node': whether to look for intersection with the connector node itself, or
+          treenode-connector edges associated with the connector
+        type: string
+        required: false
+        paramType: form
       - name: tolerance
-        description: > minimum XY distance, in project space, used to determine whether a connector edge is associated
+        description: > minimum XY distance, in project space, used to determine whether a geometry is associated
           with a synapse slice. Default 0 (geometric intersection).
         type: float
         required: false
@@ -169,6 +175,8 @@ def get_intersecting_connectors(request, project_id=None):
         'skeleton_ids', 'treenode_ids', 'distance'
     ]
 
+    mode = request.POST.get('mode', 'edge')
+
     tolerance = float(request.POST.get('tolerance', 0))
 
     obj_ids = get_request_list(request.POST, 'synapse_object_ids', tuple(), int)
@@ -185,51 +193,113 @@ def get_intersecting_connectors(request, project_id=None):
 
     offset_xs, offset_ys, offset_zs = translation / resolution
 
+    params = {
+        'obj_ids': obj_ids,
+        'offset_xs': offset_xs,
+        'offset_ys': offset_ys,
+        'offset_zs': offset_zs,
+        'resolution_x': resolution[0],
+        'resolution_y': resolution[1],
+        'resolution_z': resolution[2],
+        'tolerance': tolerance,
+        'project_id': project_id
+    }
+
+    modes = {
+        'edge': _get_intersecting_connectors_edge,
+        'node': _get_intersecting_connectors_node,
+        # 'box': _get_intersecting_connectors_box  # todo?
+    }
+
+    data = modes[mode](cursor, **params)
+
+    return JsonResponse({'columns': columns, 'data': data})
+
+
+def _get_intersecting_connectors_edge(cursor=None, **kwargs):
+    cursor = cursor or connection.cursor()
+
     cursor.execute('''
-      SELECT syn_con.syn_id, syn_con.c_id, syn_con.c_x, syn_con.c_y, syn_con.c_z, syn_con.c_conf, syn_con.c_user,
-        array_agg(tn.skeleton_id), array_agg(tn.id), syn_con.min_dist
+          SELECT subq.syn_id, subq.c_id, subq.c_x, subq.c_y, subq.c_z, subq.c_conf, subq.c_user,
+            array_agg(tn.skeleton_id), array_agg(tn.id), subq.min_dist
+          FROM (
+            SELECT 
+              ss_so.synapse_object_id, 
+              c.id, c.location_x, c.location_y, c.location_z, c.confidence, c.user_id, 
+              min(ST_Distance(tce.edge, ss_trans.geom_2d))
+            FROM synapse_slice_synapse_object ss_so
+            INNER JOIN unnest(%(obj_ids)s::BIGINT[]) AS syns (id)
+              ON ss_so.synapse_object_id = syns.id
+            INNER JOIN (
+              SELECT ss.id, ss.synapse_detection_tile_id, ST_TransScale(
+                ss.geom_2d, %(offset_xs)s, %(offset_ys)s, %(resolution_x)s, %(resolution_y)s
+              )
+                FROM synapse_slice ss
+            ) AS ss_trans (id, synapse_detection_tile_id, geom_2d)
+              ON ss_trans.id = ss_so.synapse_slice_id
+            INNER JOIN synapse_detection_tile tile
+              ON ss_trans.synapse_detection_tile_id = tile.id
+            INNER JOIN treenode_connector_edge tce
+              ON (tile.z_tile_idx + %(offset_zs)s) * %(resolution_z)s BETWEEN ST_ZMin(tce.edge) AND ST_ZMax(tce.edge)
+              AND ST_DWithin(tce.edge, ss_trans.geom_2d, %(tolerance)s)
+            INNER JOIN treenode_connector tc
+              ON tc.id = tce.id
+            INNER JOIN relation
+              ON tc.relation_id = relation.id
+            INNER JOIN connector c
+              ON c.id = tc.connector_id
+            WHERE tce.project_id = %(project_id)s
+              AND relation.relation_name = ANY(ARRAY['presynaptic_to', 'postsynaptic_to'])
+            GROUP BY ss_so.synapse_object_id, c.id
+          ) AS subq (syn_id, c_id, c_x, c_y, c_z, c_conf, c_user, min_dist)
+          INNER JOIN treenode_connector tc2
+            ON tc2.connector_id = subq.c_id
+          INNER JOIN treenode tn
+            ON tc2.treenode_id = tn.id
+          GROUP BY subq.syn_id, subq.c_id, subq.c_x, subq.c_y, subq.c_z, subq.c_conf, subq.c_user, subq.min_dist;
+        ''', kwargs)
+
+    return cursor.fetchall()
+
+
+def _get_intersecting_connectors_node(cursor=None, **kwargs):
+    # todo: test
+    cursor = cursor or connection.cursor()
+
+    cursor.execute('''
+      SELECT subq.syn_id, subq.c_id, subq.c_x, subq.c_y, subq.c_z, subq.c_conf, subq.c_user,
+        array_agg(tn.skeleton_id), array_agg(tn.id), subq.min_dist
       FROM (
-        SELECT 
+        SELECT
           ss_so.synapse_object_id, 
           c.id, c.location_x, c.location_y, c.location_z, c.confidence, c.user_id, 
-          min(ST_Distance(tce.edge, ss_trans.geom_2d))
+          min(ST_Distance(ST_MakePoint(c.location_x, c.location_y), ss_trans.geom_2d))
         FROM synapse_slice_synapse_object ss_so
-        INNER JOIN unnest(%s::BIGINT[]) AS syns (id)
+        INNER JOIN unnest(%(obj_ids)s::BIGINT[]) AS syns (id)
           ON ss_so.synapse_object_id = syns.id
         INNER JOIN (
-          SELECT ss.id, ss.synapse_detection_tile_id, ST_TransScale(ss.geom_2d, %s, %s, %s, %s)
+          SELECT ss.id, ss.synapse_detection_tile_id, ST_TransScale(
+            ss.geom_2d, %(offset_xs)s, %(offset_ys)s, %(resolution_x)s, %(resolution_y)s
+          )
             FROM synapse_slice ss
         ) AS ss_trans (id, synapse_detection_tile_id, geom_2d)
           ON ss_trans.id = ss_so.synapse_slice_id
         INNER JOIN synapse_detection_tile tile
           ON ss_trans.synapse_detection_tile_id = tile.id
-        INNER JOIN treenode_connector_edge tce
-          ON (tile.z_tile_idx + %s) * %s BETWEEN ST_ZMin(tce.edge) AND ST_ZMax(tce.edge)
-          AND ST_DWithin(tce.edge, ss_trans.geom_2d, %s)
-        INNER JOIN treenode_connector tc
-          ON tc.id = tce.id
-        INNER JOIN relation
-          ON tc.relation_id = relation.id
         INNER JOIN connector c
-          ON c.id = tc.connector_id
-        WHERE tce.project_id = %s
-          AND relation.relation_name = ANY(ARRAY['presynaptic_to', 'postsynaptic_to'])
+          ON (tile.z_tile_idx + %(offset_zs)s) * %(resolution_z)s = c.location_z
+          AND ST_DWithin(ST_MakePoint(c.location_x, c.location_y), ss_trans.geom_2d, %(tolerance)s)  -- better way to handle geom?
+          AND c.project_id = %(project_id)s
         GROUP BY ss_so.synapse_object_id, c.id
-      ) AS syn_con (syn_id, c_id, c_x, c_y, c_z, c_conf, c_user, min_dist)
+      ) AS subq (syn_id, c_id, c_x, c_y, c_z, c_conf, c_user, min_dist)
       INNER JOIN treenode_connector tc2
-        ON tc2.connector_id = syn_con.c_id
+        ON tc2.connector_id = subq.c_id
       INNER JOIN treenode tn
         ON tc2.treenode_id = tn.id
-      GROUP BY syn_con.syn_id, syn_con.c_id, syn_con.c_x, syn_con.c_y, syn_con.c_z, syn_con.c_conf, syn_con.c_user, syn_con.min_dist;
-    ''', (
-        obj_ids,
-        offset_xs, offset_ys, resolution[0], resolution[1],
-        offset_zs, resolution[2],
-        tolerance,
-        project_id
-    ))
+      GROUP BY subq.syn_id, subq.c_id, subq.c_x, subq.c_y, subq.c_z, subq.c_conf, subq.c_user, subq.min_dist;
+    ''', kwargs)
 
-    return JsonResponse({'columns': columns, 'data': cursor.fetchall()})
+    return cursor.fetchall()
 
 
 @api_view(['GET'])
