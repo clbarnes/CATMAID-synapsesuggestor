@@ -224,9 +224,22 @@
         algoSelect.addEventListener('change', self.update.bind(self, true));
         algoLabel.appendChild(algoSelect);
 
+        const modeLabel = document.createElement('label');
+        modeLabel.appendChild(document.createTextNode('Intersection mode:'));
+        modeLabel.title = 'Whether to look for intersections between synapses and connector edges, or just the ' +
+          'connector node itself';
+        controls.appendChild(modeLabel);
+
+        const modeSelect = document.createElement('select');
+        modeSelect.id = self.idPrefix + 'mode-select';
+        modeSelect.appendChild(new Option('edge', 'edge', true, true));
+        modeSelect.appendChild(new Option('node', 'node'));
+        algoSelect.addEventListener('change', self.update.bind(self, true));
+        modeLabel.appendChild(modeSelect);
+
         const toleranceLabel = document.createElement('label');
         toleranceLabel.appendChild(document.createTextNode('Tolerance (nm):'));
-        toleranceLabel.title = '2D spatial tolerance, in nm, for determining whether a connector edge is associated' +
+        toleranceLabel.title = '2D spatial tolerance, in nm, for determining whether a connector is associated' +
           ' with a synapse';
         controls.appendChild(toleranceLabel);
 
@@ -727,7 +740,7 @@
 
     const promises = ['presynaptic_to', 'postsynaptic_to'].map(function(relationType) {
       return CATMAID.fetch(
-        project.id + '/connectors', 'GET', {skeleton_ids: [skelID], relation_type: relationType, with_tags: false}
+        project.id + '/connectors', 'POST', {skeleton_ids: [skelID], relation_type: relationType, with_tags: false}
       ).then(function(response) {
         const outObj = response.links.reduce(function(obj, row) {
           obj[row[1]] = {connID: row[1], relationType: relationType};
@@ -795,9 +808,15 @@
         }, {});
       }).then(function (rowsObj) {
         const tolerance = Number(document.getElementById(self.idPrefix + 'tolerance').value);
+        const mode = document.getElementById(self.idPrefix + 'mode-select').value;
         return CATMAID.fetch(
           `${URL_BASE}/analysis/${project.id}/intersecting-connectors`, 'POST',
-          {workflow_id: self.workflowInfo.workflow_id, synapse_object_ids: Object.keys(rowsObj), tolerance: tolerance}
+          {
+            workflow_id: self.workflowInfo.workflow_id,
+            synapse_object_ids: Object.keys(rowsObj),
+            tolerance: tolerance,
+            mode: mode
+          }
         ).then(function(response) {
           for (let responseRow of response.data) {
             const responseRowObj = objZip(response.columns, responseRow);
