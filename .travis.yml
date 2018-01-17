@@ -6,54 +6,30 @@ language: python
 cache: pip
 python:
   - "2.7"
-  - "3.5"
+  - "3.6"
   - "pypy"
+  - "pypy3"
 env:
   global:
     - CATMAID_DIR=$TRAVIS_BUILD_DIR/travis/CATMAID
 addons:
   apt:
     sources:
-    - precise-pgdg-9.5
+    - precise-pgdg-9.6
     packages:
-    - postgresql-9.5
-    - postgresql-contrib-9.5
-  postgresql: 9.5
+    - postgresql-9.6
+    - postgresql-contrib-9.6
+  postgresql: 9.6
 before_install:
   - travis_retry sudo apt-get update -qq
   - pip install coveralls
-  # setup CATMAID
-  # todo: base on catmaid master
-  - git clone -b features/1637-pipeline-extensions https://github.com/clbarnes/CATMAID.git $CATMAID_DIR
+  # todo: test against release version (once travis scripts are merged)
+  - git clone -b dev https://github.com/catmaid/CATMAID.git $CATMAID_DIR
   - cd $CATMAID_DIR
-  - travis_retry sudo apt-get install -qq $(< packagelist-ubuntu-14.04-apt.txt)
-  - travis_retry python -m pip install -U pip
-  - travis_retry travis_wait 60 pip install -q -r django/requirements.txt
-  - pip list
-  # Install additional dependencies for Travis
-  - pip install -q -r django/requirements-test.txt
-  - sudo cp /etc/postgresql/9.4/main/pg_hba.conf /etc/postgresql/9.5/main/pg_hba.conf
-  - sudo /etc/init.d/postgresql restart
-  - psql -c 'CREATE DATABASE catmaid;' -U postgres
-  - psql -c 'CREATE EXTENSION postgis;' -U postgres catmaid
-  - cd django
-  - cp configuration.py.example configuration.py
-  - sed -i -e "s?^\(abs_catmaid_path = \).*?\1'$(pwd)'?g" configuration.py
-  - sed -i -e "s?^\(abs_virtualenv_python_library_path = \).*?\1'$(echo $VIRTUAL_ENV)'?g" configuration.py
-  - sed -i -e "s?^\(catmaid_database_name = \).*?\1'catmaid'?g" configuration.py
-  - sed -i -e "s?^\(catmaid_database_username = \).*?\1'postgres'?g" configuration.py
-  - sed -i -e "s?^\(catmaid_timezone = \).*?\1'America/New_York'?g" configuration.py
-  - sed -i -e "s?^\(catmaid_servername = \).*?\1'localhost:8000'?g" configuration.py
-  - cat configuration.py
-  - python create_configuration.py
-  - sed -i -e "s?^\(ALLOWED_HOSTS = \).*?\1['*']?g" projects/mysite/settings.py
-  # Enable static file serving without DEBUG = True
-  - echo "SERVE_STATIC = True" >> projects/mysite/settings.py
-  # Show full front-end errors by default
-  - echo "EXPAND_FRONTEND_ERRORS = True" >> projects/mysite/settings.py
-  - echo "INSTALLED_APPS += ('synapsesuggestor.apps.SynapsesuggestorConfig', )" >> projects/mysite/settings.py
-  - cat projects/mysite/settings.py
-  - cd $CATMAID_DIR/django/projects
+  - ./scripts/travis/install_requirements.sh
+  - ./scripts/travis/setup_database.sh
+  - ./scripts/travis/configure_catmaid.sh
+  - cd django/projects
 install:
   - pip install -e $TRAVIS_BUILD_DIR
   - python manage.py migrate --noinput
