@@ -38,12 +38,13 @@ before_install:
 install:
   - pip install -e $TRAVIS_BUILD_DIR
   - cd django/projects
+  # todo: remove next line when it's included in settings.py.example
   - echo "INSTALLED_APPS += tuple('{}.apps.{}Config'.format(app_name, app_name.title()) for app_name in INSTALLED_EXTENSIONS)" >> mysite/settings.py
   - python manage.py migrate --noinput
   - python manage.py collectstatic --link --noinput
 script:
-  - flake8 --config=.travis.flake8 --statistics --count --exit-zero -q -q $PACKAGE_DIR
-  - jshint --config=.travis.jshintrc --exclude-path=.travis.jshintignore $JS_DIR
+  - flake8 --config=$CATMAID_DIR/.travis.flake8 --statistics --count --exit-zero -q -q $PACKAGE_DIR
+  - jshint --config=$CATMAID_DIR/.travis.jshintrc --exclude-path=$CATMAID_DIR/.travis.jshintignore $JS_DIR
   - jsdoc -r $JS_DIR
   - coverage run --source=synapsesuggestor manage.py test synapsesuggestor.tests
 after_success:
