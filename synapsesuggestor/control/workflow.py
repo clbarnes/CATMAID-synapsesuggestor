@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.db import connection
 from rest_framework.decorators import api_view
 
-from catmaid.control.authentication import requires_user_role
+# from catmaid.control.authentication import requires_user_role
 from synapsesuggestor.models import (
     SynapseSuggestionWorkflow, ProjectSynapseSuggestionWorkflow, SynapseDetectionAlgorithm,
     SynapseAssociationAlgorithm, SynapseDetectionTiling
@@ -130,7 +130,9 @@ def _get_valid_workflows(project_id, stack_id):
 #
 #     for row in info:
 #         detection_algos.add((row['detection_algo_hash'], row['detection_algo_date'], row['detection_algo_notes']))
-#         association_algos.add((row['association_algo_hash'], row['association_algo_date'], row['association_algo_notes']))
+#         association_algos.add(
+#             (row['association_algo_hash'], row['association_algo_date'], row['association_algo_notes'])
+#         )
 #         valid_pairs.add((row['detection_algo_hash'], row['association_algo_hash']))
 #
 #     return JsonResponse({

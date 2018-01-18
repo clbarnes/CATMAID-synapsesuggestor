@@ -5,7 +5,7 @@ from django.db import models
 from django.contrib.gis.db import models as spatial_models
 from django.utils.encoding import python_2_unicode_compatible
 
-from catmaid.models import Treenode, Stack, StackMirror, Project
+from catmaid.models import Treenode, Stack, Project
 
 
 @python_2_unicode_compatible

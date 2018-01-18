@@ -36,7 +36,8 @@ def list_into_query(query, arg_lst, fmt='%s'):
     Args:
       query(str): A string with a single {} in it
       arg_lst(list): List of arguments to supply to SQL
-      fmt(str, optional): Placeholder to use for each element (e.g. use this to wrap stuff in brackets), or to account for tuples (Default value = '%s')
+      fmt(str, optional): Placeholder to use for each element (e.g. use this to wrap stuff in brackets), or to account
+        for tuples (Default value = '%s')
 
     Returns:
       (str, tuple): The two arguments to pass to cursor.execute
@@ -74,8 +75,8 @@ def list_into_query_multi(query, fmt=None, **kwargs):
     --------
     >>> query = "INSERT INTO table_name1 (a, b) VALUES ({first}); INSERT INTO table_name2 (a, b) VALUES ({second});"
     >>> list_into_query_multi(query, fmt={'second': '(%s, %s)'}, first=[1, 2, 3], second=[[1,2], [3,4]])
-    >>> ('INSERT INTO table_name1 (a, b) VALUES (%s, %s, %s); INSERT INTO table_name2 (a, b) VALUES ((%s, %s), (%s, %s));',
-    >>>     [1, 2, 3, 1, 2, 3, 4])
+    ('INSERT INTO table_name1 (a, b) VALUES (%s, %s, %s); INSERT INTO table_name2 (a, b) VALUES ((%s, %s), (%s, %s));',
+         [1, 2, 3, 1, 2, 3, 4])
     """
     if fmt is None:
         fmt = dict()
@@ -112,9 +113,9 @@ def get_translation_resolution(project_id, ssw_id, cursor=None):
         cursor = connection.cursor()
 
     cursor.execute('''
-        SELECT 
-          (ps.translation).x, (ps.translation).y, (ps.translation).z, 
-          (stack.resolution).x, (stack.resolution).y, (stack.resolution).z  
+        SELECT
+          (ps.translation).x, (ps.translation).y, (ps.translation).z,
+          (stack.resolution).x, (stack.resolution).y, (stack.resolution).z
         FROM synapse_suggestion_workflow ssw
           INNER JOIN synapse_detection_tiling tiling
             ON ssw.synapse_detection_tiling_id = tiling.id

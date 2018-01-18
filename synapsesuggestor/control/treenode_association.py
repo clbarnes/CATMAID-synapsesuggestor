@@ -9,14 +9,16 @@ from django.db import connection
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
 
-from catmaid.control.authentication import requires_user_role
+# from catmaid.control.authentication import requires_user_role
 from catmaid.control.common import get_request_list
 from synapsesuggestor.models import ProjectSynapseSuggestionWorkflow
-from synapsesuggestor.control.common import list_into_query, get_most_recent_project_SS_workflow, \
-    get_project_SS_workflow, get_translation_resolution
+from synapsesuggestor.control.common import (
+    list_into_query, get_most_recent_project_SS_workflow, get_translation_resolution,  # get_project_SS_workflow
+)
 
 
 logger = logging.getLogger(__name__)
+
 
 @api_view(['POST'])
 def add_treenode_synapse_associations(request, project_id=None):
@@ -142,11 +144,11 @@ def get_synapse_objects_info(translation, resolution, synapse_object_ids, cursor
 
     cursor.execute('''
         SELECT combined.so_id, combined.ss_ids, combined.comb_geom
-        FROM (SELECT 
-          three_d.so_id AS so_id, 
-          array_agg(three_d.ss_id) AS ss_ids, 
+        FROM (SELECT
+          three_d.so_id AS so_id,
+          array_agg(three_d.ss_id) AS ss_ids,
           ST_3DUnion(three_d.ss_geom3d) AS comb_geom
-          FROM (SELECT 
+          FROM (SELECT
             ss_so.synapse_object_id AS so_id,
             ss.id AS ss_id,
             ST_Extrude(
@@ -165,8 +167,7 @@ def get_synapse_objects_info(translation, resolution, synapse_object_ids, cursor
             ON ss.synapse_detection_tile_id = tile.id
           WHERE ss_so.id = ANY(%s)) three_d
           GROUP BY three_d.so_id) combined
-    ''',
-       (
+    ''', (
            resolution[0], resolution[1],
            translation[0], translation[1], translation[2], resolution[2],
            synapse_object_ids
@@ -217,7 +218,7 @@ def get_synapse_slices_near_skeletons(request, project_id=None):
     if dimensions == 2:
 
         cursor.execute('''
-            SELECT tn.skeleton_id, tn.id, ss_so2.synapse_object_id, array_agg(DISTINCT ss2.id), 
+            SELECT tn.skeleton_id, tn.id, ss_so2.synapse_object_id, array_agg(DISTINCT ss2.id),
               tile2.z_tile_idx, ARRAY[
                 ST_XMin(ST_Extent(ss2.geom_2d)),
                 ST_YMin(ST_Extent(ss2.geom_2d)),
@@ -231,7 +232,7 @@ def get_synapse_slices_near_skeletons(request, project_id=None):
               ON tile1.z_tile_idx = (tn.location_z / %s) - %s
               AND ST_DWithin(
                     ST_MakePoint((tn.location_x / %s) - %s, (tn.location_y / %s) - %s),
-                    ss1.geom_2d, 
+                    ss1.geom_2d,
                     (%s / %s) - %s
                 )
             INNER JOIN synapse_slice_synapse_object ss_so1

@@ -6,6 +6,7 @@ from django.db import connection
 
 from psycopg2.extensions import AsIs
 
+
 class Command(BaseCommand):
     help = 'Closes the specified poll for voting'
 

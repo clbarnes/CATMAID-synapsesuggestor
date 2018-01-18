@@ -3,7 +3,6 @@
 Methods called by the frontend analysis widget
 """
 from __future__ import division
-import numpy as np
 
 from django.db import connection
 from django.http import JsonResponse
@@ -77,25 +76,27 @@ def get_skeleton_synapses(request, project_id=None):
     if ssw_id is None:
         pssw = get_most_recent_project_SS_workflow(project_id)
     else:
-        pssw = ProjectSynapseSuggestionWorkflow.objects.get(synapse_suggestion_workflow_id=ssw_id, project_id=project_id)
+        pssw = ProjectSynapseSuggestionWorkflow.objects.get(
+            synapse_suggestion_workflow_id=ssw_id, project_id=project_id
+        )
 
     cursor = connection.cursor()
 
     # todo: why is this casting necessary? unit tests produced strings
     cursor.execute('''
-        SELECT 
+        SELECT
             ss_so_synapse_object_id, array_agg(tn_id), tn_skeleton_id,
-            cast(round(avg(that_ss_xs_centroid)) as int), cast(round(avg(that_ss_ys_centroid)) as int), 
+            cast(round(avg(that_ss_xs_centroid)) as int), cast(round(avg(that_ss_ys_centroid)) as int),
             cast(round(avg(tile_z_tile_idx)) as int), array_agg(tile_z_tile_idx),
             sum(that_ss_size_px), sum(ss_tn_contact_px), avg(that_ss_uncertainty)
         FROM (
-            SELECT DISTINCT ON (that_ss.id) 
+            SELECT DISTINCT ON (that_ss.id)
               ss_so.synapse_object_id, tn.id, tn.skeleton_id,
               that_ss.xs_centroid, that_ss.ys_centroid, tile.z_tile_idx,
               that_ss.size_px, ss_tn.contact_px, that_ss.uncertainty
             FROM treenode tn
               INNER JOIN synapse_slice_treenode ss_tn
-                ON tn.id = ss_tn.treenode_id 
+                ON tn.id = ss_tn.treenode_id
               INNER JOIN synapse_slice this_ss
                 ON ss_tn.synapse_slice_id = this_ss.id
               INNER JOIN synapse_slice_synapse_object ss_so
@@ -223,9 +224,9 @@ def _get_intersecting_connectors_edge(cursor=None, **kwargs):
           SELECT subq.syn_id, subq.c_id, subq.c_x, subq.c_y, subq.c_z, subq.c_conf, subq.c_user,
             array_agg(tn.skeleton_id), array_agg(tn.id), subq.min_dist
           FROM (
-            SELECT 
-              ss_so.synapse_object_id, 
-              c.id, c.location_x, c.location_y, c.location_z, c.confidence, c.user_id, 
+            SELECT
+              ss_so.synapse_object_id,
+              c.id, c.location_x, c.location_y, c.location_z, c.confidence, c.user_id,
               min(ST_Distance(tce.edge, ss_trans.geom_2d))
             FROM synapse_slice_synapse_object ss_so
             INNER JOIN unnest(%(obj_ids)s::BIGINT[]) AS syns (id)
@@ -271,8 +272,8 @@ def _get_intersecting_connectors_node(cursor=None, **kwargs):
         array_agg(tn.skeleton_id), array_agg(tn.id), subq.min_dist
       FROM (
         SELECT
-          ss_so.synapse_object_id, 
-          c.id, c.location_x, c.location_y, c.location_z, c.confidence, c.user_id, 
+          ss_so.synapse_object_id,
+          c.id, c.location_x, c.location_y, c.location_z, c.confidence, c.user_id,
           min(ST_Distance(ST_MakePoint(c.location_x, c.location_y), ss_trans.geom_2d))
         FROM synapse_slice_synapse_object ss_so
         INNER JOIN unnest(%(obj_ids)s::BIGINT[]) AS syns (id)
@@ -288,7 +289,8 @@ def _get_intersecting_connectors_node(cursor=None, **kwargs):
           ON ss_trans.synapse_detection_tile_id = tile.id
         INNER JOIN connector c
           ON (tile.z_tile_idx + %(offset_zs)s) * %(resolution_z)s = c.location_z
-          AND ST_DWithin(ST_MakePoint(c.location_x, c.location_y), ss_trans.geom_2d, %(tolerance)s)  -- better way to handle geom?
+          -- better way to handle geom?
+          AND ST_DWithin(ST_MakePoint(c.location_x, c.location_y), ss_trans.geom_2d, %(tolerance)s)
           AND c.project_id = %(project_id)s
         GROUP BY ss_so.synapse_object_id, c.id
       ) AS subq (syn_id, c_id, c_x, c_y, c_z, c_conf, c_user, min_dist)
@@ -346,7 +348,7 @@ def get_synapse_extents(request, project_id=None):
             min(ST_YMin(ss.geom_2d)) - %(xy_pad)s, max(ST_YMax(ss.geom_2d)) + %(xy_pad)s,
             min(tile.z_tile_idx) - %(z_pad)s, max(tile.z_tile_idx) + %(z_pad)s
           FROM synapse_slice_synapse_object ss_so
-          INNER JOIN synapse_slice ss 
+          INNER JOIN synapse_slice ss
             ON ss_so.synapse_slice_id = ss.id
           INNER JOIN synapse_detection_tile tile
             ON ss.synapse_detection_tile_id = tile.id
@@ -388,7 +390,7 @@ def get_partners(request, project_id=None):
     cursor = connection.cursor()
 
     cursor.execute('''
-        SELECT 
+        SELECT
             ss_so.synapse_object_id, array_agg(tn.id), tn.skeleton_id, sum(ss_tn.contact_px)
           FROM synapse_slice_synapse_object ss_so
           INNER JOIN unnest(%(syns)s::bigint[]) AS syns(id)

@@ -304,8 +304,10 @@ class SynapseDetectionApiTests(SynapseSuggestorTestCase):
         new_ids = self.insert_synapses(0, (0, 1), height=2)
         parsed_response = self.agglomerate_synapses(new_ids)
 
-        self.assertEqual(len(parsed_response['slice_object_mappings']), 4)  # all 4 syn slices are merged
-        self.assertEqual(len(set(parsed_response['slice_object_mappings'].values())), 1)  # they all map to the same synapse object
+        # check all 4 syn slices are merged
+        self.assertEqual(len(parsed_response['slice_object_mappings']), 4)
+        # check they all map to the same synapse object
+        self.assertEqual(len(set(parsed_response['slice_object_mappings'].values())), 1)
 
         # test old mapping was cleared up
         mappings = SynapseSliceSynapseObject.objects.all()

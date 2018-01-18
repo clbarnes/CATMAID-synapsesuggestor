@@ -102,7 +102,9 @@ class Migration(migrations.Migration):
                 ('xs_centroid', models.IntegerField(verbose_name='x coord of centroid in stack coordinates')),
                 ('ys_centroid', models.IntegerField(verbose_name='y coord of centroid in stack coordinates')),
                 ('uncertainty', models.FloatField(null=True)),
-                ('synapse_detection_tile', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseDetectionTile')),
+                ('synapse_detection_tile', models.ForeignKey(
+                    on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseDetectionTile'
+                )),
             ],
             options={
                 'db_table': 'synapse_slice',
@@ -112,8 +114,12 @@ class Migration(migrations.Migration):
             name='SynapseSliceSynapseObject',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('synapse_object', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseObject')),
-                ('synapse_slice', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseSlice')),
+                ('synapse_object', models.ForeignKey(
+                    on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseObject'
+                )),
+                ('synapse_slice', models.OneToOneField(
+                    on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseSlice'
+                )),
             ],
             options={
                 'db_table': 'synapse_slice_synapse_object',
@@ -123,10 +129,18 @@ class Migration(migrations.Migration):
             name='SynapseSliceTreenode',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('contact_px', models.IntegerField(verbose_name='Size in pixels of 1D contact area between neuron and synapse')),
-                ('project_synapse_suggestion_workflow', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.ProjectSynapseSuggestionWorkflow')),
-                ('synapse_slice', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseSlice')),
-                ('treenode', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='catmaid.Treenode')),
+                ('contact_px', models.IntegerField(
+                    verbose_name='Size in pixels of 1D contact area between neuron and synapse'
+                )),
+                ('project_synapse_suggestion_workflow', models.ForeignKey(
+                    on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.ProjectSynapseSuggestionWorkflow'
+                )),
+                ('synapse_slice', models.ForeignKey(
+                    null=True, on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseSlice'
+                )),
+                ('treenode', models.ForeignKey(
+                    null=True, on_delete=django.db.models.deletion.CASCADE, to='catmaid.Treenode'
+                )),
             ],
             options={
                 'db_table': 'synapse_slice_treenode',
@@ -136,9 +150,16 @@ class Migration(migrations.Migration):
             name='SynapseSuggestionWorkflow',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('synapse_detection_algorithm', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseDetectionAlgorithm')),
-                ('synapse_detection_tiling', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseDetectionTiling')),
-                ('synapse_image_store', models.OneToOneField(default=None, null=True, on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseImageStore')),
+                ('synapse_detection_algorithm', models.ForeignKey(
+                    on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseDetectionAlgorithm'
+                )),
+                ('synapse_detection_tiling', models.ForeignKey(
+                    on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseDetectionTiling'
+                )),
+                ('synapse_image_store', models.OneToOneField(
+                    default=None, null=True, on_delete=django.db.models.deletion.CASCADE,
+                    to='synapsesuggestor.SynapseImageStore'
+                )),
             ],
             options={
                 'db_table': 'synapse_suggestion_workflow',
@@ -147,17 +168,23 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='synapsedetectiontile',
             name='synapse_suggestion_workflow',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseSuggestionWorkflow'),
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseSuggestionWorkflow'
+            ),
         ),
         migrations.AddField(
             model_name='projectsynapsesuggestionworkflow',
             name='synapse_association_algorithm',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseAssociationAlgorithm'),
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseAssociationAlgorithm'
+            ),
         ),
         migrations.AddField(
             model_name='projectsynapsesuggestionworkflow',
             name='synapse_suggestion_workflow',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseSuggestionWorkflow'),
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, to='synapsesuggestor.SynapseSuggestionWorkflow'
+            ),
         ),
         migrations.AlterUniqueTogether(
             name='synapsesuggestionworkflow',

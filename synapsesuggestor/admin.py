@@ -18,8 +18,10 @@ admin.site.register(SynapseSuggestionWorkflow)
 
 admin.site.register(SynapseDetectionTile)
 
+
 class SynapseSliceAdmin(admin.ModelAdmin):
     pass
+
 
 admin.site.register(SynapseSlice, SynapseSliceAdmin)
 

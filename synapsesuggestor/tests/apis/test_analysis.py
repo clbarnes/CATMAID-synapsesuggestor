@@ -93,7 +93,7 @@ class AnalysisApiTests(SynapseSuggestorTestCase):
             confidence=confidence
         )
 
-        created_links = create_connector_link(
+        create_connector_link(
             project_id, self.test_user.id, new_treenode.treenode_id, new_treenode.skeleton_id,
             [[new_connector.id, relation.id, confidence]]
         )
@@ -115,8 +115,6 @@ class AnalysisApiTests(SynapseSuggestorTestCase):
         response = self.client.post(URL_PREFIX + '/{}/intersecting-connectors'.format(self.test_project_id), data)
         self.assertEqual(response.status_code, 200)
         parsed_response = json.loads(response.content.decode('utf-8'))
-
-        print(parsed_response)
 
         if parsed_response['data']:
             self.assertEqual(len(parsed_response['columns']), len(parsed_response['data'][0]))

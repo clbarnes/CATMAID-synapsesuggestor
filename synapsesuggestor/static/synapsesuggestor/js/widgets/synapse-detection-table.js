@@ -659,7 +659,7 @@
    * @param stop
    * @param count
    * @param round
-   * @return {[*]}
+   * @return {Array.<number>}
    */
   const linspace = function(start, stop, count, round) {
     const out = [start];

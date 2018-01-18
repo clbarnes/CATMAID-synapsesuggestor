@@ -11,7 +11,7 @@ from django.db import connection
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
 
-from catmaid.control.authentication import requires_user_role
+# from catmaid.control.authentication import requires_user_role
 from catmaid.control.common import get_request_list
 from synapsesuggestor.control.common import list_into_query
 from synapsesuggestor.models import SynapseDetectionTile, SynapseObject
