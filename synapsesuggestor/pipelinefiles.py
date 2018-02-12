@@ -14,6 +14,7 @@ JAVASCRIPT = OrderedDict()
 JAVASCRIPT['synapsesuggestor'] = {
     'source_filenames': (
         'synapsesuggestor/js/widgets/synapse-detection-table.js',
+        'synapsesuggestor/js/widgets/connector-peruser.js',
     ),
     'output_filename': 'js/synapsesuggestor.js'
 }
