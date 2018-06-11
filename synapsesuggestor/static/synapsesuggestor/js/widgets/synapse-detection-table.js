@@ -234,7 +234,7 @@
         modeSelect.id = self.idPrefix + 'mode-select';
         modeSelect.appendChild(new Option('edge', 'edge', true, true));
         modeSelect.appendChild(new Option('node', 'node'));
-        algoSelect.addEventListener('change', self.update.bind(self, true));
+        modeSelect.addEventListener('change', self.update.bind(self, true));
         modeLabel.appendChild(modeSelect);
 
         const toleranceLabel = document.createElement('label');
