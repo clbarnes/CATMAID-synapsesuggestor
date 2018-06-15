@@ -32,6 +32,7 @@ before_install:
   # todo: test against release version (once travis scripts are merged)
   - git clone -b dev https://github.com/catmaid/CATMAID.git $CATMAID_DIR
   - cd $CATMAID_DIR
+  - bash scripts/travis/install_postgres.sh
   - ./scripts/travis/install_requirements.sh
   - ./scripts/travis/setup_database.sh
   - ./scripts/travis/configure_catmaid.sh
