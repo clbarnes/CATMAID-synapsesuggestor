@@ -38,8 +38,6 @@ before_install:
 install:
   - pip install -e $TRAVIS_BUILD_DIR
   - cd django/projects
-  # todo: remove next line when it's included in settings.py.example
-  - echo "INSTALLED_APPS += tuple('{}.apps.{}Config'.format(app_name, app_name.title()) for app_name in INSTALLED_EXTENSIONS)" >> mysite/settings.py
   - python manage.py migrate --noinput
   - python manage.py collectstatic --link --noinput
 script:
