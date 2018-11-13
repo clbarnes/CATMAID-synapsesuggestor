@@ -5,9 +5,8 @@ notifications:
 language: python
 cache: pip
 python:
-  - "2.7"
+  - "3.5"
   - "3.6"
-  - "pypy"
   - "pypy3"
 env:
   global:
@@ -15,12 +14,6 @@ env:
     - PACKAGE_DIR=$TRAVIS_BUILD_DIR/synapsesuggestor
     - JS_DIR=$PACKAGE_DIR/static/synapsesuggestor/js
 addons:
-  apt:
-    sources:
-    - precise-pgdg-9.6
-    packages:
-    - postgresql-9.6
-    - postgresql-contrib-9.6
   postgresql: 9.6
 before_install:
   - travis_retry sudo apt-get update -qq
@@ -33,9 +26,10 @@ before_install:
   - git clone -b dev https://github.com/catmaid/CATMAID.git $CATMAID_DIR
   - cd $CATMAID_DIR
   - bash scripts/travis/install_postgres.sh
-  - ./scripts/travis/install_requirements.sh
-  - ./scripts/travis/setup_database.sh
-  - ./scripts/travis/configure_catmaid.sh
+  - bash scripts/travis/install_python.sh
+  - bash scripts/travis/install_requirements.sh
+  - bash scripts/travis/setup_database.sh
+  - bash scripts/travis/configure_catmaid.sh
 install:
   - pip install -e $TRAVIS_BUILD_DIR
   - cd django/projects
