@@ -5,9 +5,8 @@ notifications:
 language: python
 cache: pip
 python:
-  - "2.7"
+  - "3.5"
   - "3.6"
-  - "pypy"
   - "pypy3"
 env:
   global:
@@ -15,12 +14,6 @@ env:
     - PACKAGE_DIR=$TRAVIS_BUILD_DIR/synapsesuggestor
     - JS_DIR=$PACKAGE_DIR/static/synapsesuggestor/js
 addons:
-  apt:
-    sources:
-    - precise-pgdg-9.6
-    packages:
-    - postgresql-9.6
-    - postgresql-contrib-9.6
   postgresql: 9.6
 before_install:
   - travis_retry sudo apt-get update -qq
@@ -32,14 +25,15 @@ before_install:
   # todo: test against release version (once travis scripts are merged)
   - git clone -b dev https://github.com/catmaid/CATMAID.git $CATMAID_DIR
   - cd $CATMAID_DIR
-  - ./scripts/travis/install_requirements.sh
-  - ./scripts/travis/setup_database.sh
-  - ./scripts/travis/configure_catmaid.sh
+  - bash scripts/travis/install_postgres.sh
+  - bash scripts/travis/install_python.sh
+  - bash scripts/travis/install_requirements.sh
+  - bash scripts/travis/setup_database.sh
+  - bash scripts/travis/configure_catmaid.sh
 install:
   - pip install -e $TRAVIS_BUILD_DIR
   - cd django/projects
   # todo: remove next line when it's included in settings.py.example
-  - echo "INSTALLED_APPS += tuple('{}.apps.{}Config'.format(app_name, app_name.title()) for app_name in INSTALLED_EXTENSIONS)" >> mysite/settings.py
   - python manage.py migrate --noinput
   - python manage.py collectstatic --link --noinput
 script:
