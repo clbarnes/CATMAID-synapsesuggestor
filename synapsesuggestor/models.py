@@ -59,7 +59,7 @@ class SynapseSuggestionWorkflow(models.Model):
     synapse_detection_algorithm = models.ForeignKey(SynapseDetectionAlgorithm, on_delete=models.CASCADE)
 
     # null when obsolete
-    synapse_image_store = models.OneToOneField(SynapseImageStore, null=True, default=None, unique=True)
+    synapse_image_store = models.OneToOneField(SynapseImageStore, null=True, default=None, unique=True, on_delete=models.CASCADE)
 
     def __str__(self):
         return '{}{}'.format(self.id, '' if self.synapse_image_store else ' (read-only)')

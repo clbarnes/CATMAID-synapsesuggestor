@@ -185,11 +185,11 @@ def _adjacencies_to_slice_clusters(adjacencies, cursor=None):
 
     existing_slice_to_obj = dict()
     existing_obj_to_slices = dict()
-    for slice, obj in cursor.fetchall():
-        existing_slice_to_obj[slice] = obj
-        if obj not in existing_obj_to_slices:
-            existing_obj_to_slices[obj] = set()
-        existing_obj_to_slices[obj].add(slice)
+    for slice_id, obj_id in cursor.fetchall():
+        existing_slice_to_obj[slice_id] = obj_id
+        if obj_id not in existing_obj_to_slices:
+            existing_obj_to_slices[obj_id] = set()
+        existing_obj_to_slices[obj_id].add(slice_id)
 
     for slice_group in existing_obj_to_slices.values():
         # order doesn't matter
