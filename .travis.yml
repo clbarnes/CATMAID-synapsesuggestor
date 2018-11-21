@@ -1,4 +1,4 @@
-dist: trusty
+dist: xenial
 sudo: required
 notifications:
   email: false
@@ -7,27 +7,38 @@ cache: pip
 python:
   - "3.5"
   - "3.6"
-  - "pypy3"
+  - "3.7"
+  - "pypy3.5"
 env:
   global:
     - CATMAID_DIR=$TRAVIS_BUILD_DIR/travis/CATMAID
     - PACKAGE_DIR=$TRAVIS_BUILD_DIR/synapsesuggestor
     - JS_DIR=$PACKAGE_DIR/static/synapsesuggestor/js
+    # todo: test against master too
+    - CATMAID_BRANCH=dev
+services:
+  - postgresql
 addons:
-  postgresql: 9.6
+  postgresql: 10
 before_install:
-  - travis_retry sudo apt-get update -qq
-  - pip install coveralls flake8
-  - npm install jshint jsdoc
-  - npm bin
-  - export PATH=$(npm bin):$PATH
   # set up CATMAID
-  # todo: test against release version (once travis scripts are merged)
-  - git clone -b dev https://github.com/catmaid/CATMAID.git $CATMAID_DIR
+  - git clone -b $CATMAID_BRANCH https://github.com/catmaid/CATMAID.git $CATMAID_DIR
   - cd $CATMAID_DIR
+  # CATMAID before_install
+  - mkdir tmp
+  - travis_retry sudo apt-get update -y -qq
   - bash scripts/travis/install_postgres.sh
   - bash scripts/travis/install_python.sh
-  - bash scripts/travis/install_requirements.sh
+  - npm update
+  # CATMAID install
+  - ./scripts/travis/install_requirements.sh
+  - pip install coveralls flake8
+  - npm --version
+  - unset NODE_ENV
+  - npm install --only=dev
+  - npm bin
+  - export PATH=$(npm bin):$PATH
+  # CATMAID before_script
   - bash scripts/travis/setup_database.sh
   - bash scripts/travis/configure_catmaid.sh
 install:
@@ -36,9 +47,11 @@ install:
   - python manage.py migrate --noinput
   - python manage.py collectstatic --link --noinput
 script:
+  # check there is no missing migration info
+  - python manage.py makemigrations synapsesuggestor
+  - coverage run --source=synapsesuggestor manage.py test synapsesuggestor.tests
   - flake8 --config=$CATMAID_DIR/.travis.flake8 --statistics --count --exit-zero -q -q $PACKAGE_DIR
   - jshint --config=$CATMAID_DIR/.travis.jshintrc --exclude-path=$CATMAID_DIR/.travis.jshintignore $JS_DIR
   - jsdoc -r $JS_DIR
-  - coverage run --source=synapsesuggestor manage.py test synapsesuggestor.tests
 after_success:
   - coveralls
