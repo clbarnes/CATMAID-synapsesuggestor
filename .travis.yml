@@ -14,8 +14,13 @@ env:
     - CATMAID_DIR=$TRAVIS_BUILD_DIR/travis/CATMAID
     - PACKAGE_DIR=$TRAVIS_BUILD_DIR/synapsesuggestor
     - JS_DIR=$PACKAGE_DIR/static/synapsesuggestor/js
-    # todo: test against master too
+  matrix:
     - CATMAID_BRANCH=dev
+    - CATMAID_BRANCH=master
+matrix:
+  allow_failures:
+    - env: CATMAID_BRANCH=master
+  fast_finish: true
 services:
   - postgresql
 addons:
