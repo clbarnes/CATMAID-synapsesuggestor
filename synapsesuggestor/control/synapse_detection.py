@@ -20,6 +20,9 @@ from synapsesuggestor.models import SynapseDetectionTile, SynapseObject
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_TOLERANCE_PX = 1.1
+
+
 def get_detected_tiles(request, project_id=None):
     """
     GET request which returns the set of tile indices which have been addressed by the given synapse suggestion
@@ -112,7 +115,7 @@ def add_synapse_slices_from_tile(request, project_id=None):
     return JsonResponse(id_mapping)
 
 
-def _get_synapse_slice_adjacencies(synapse_slice_ids, cursor=None):
+def _get_synapse_slice_adjacencies(synapse_slice_ids, tolerance=DEFAULT_TOLERANCE_PX, cursor=None):
     """
     Get adjacencies between given synapse slices and all other synapse slices which refer to synapse detection tiles
     which refer to the same synapse suggestion workflow.
@@ -129,10 +132,10 @@ def _get_synapse_slice_adjacencies(synapse_slice_ids, cursor=None):
     graph = nx.Graph()
     graph.add_nodes_from(synapse_slice_ids)
     # get rows of synapse slices of interest; join to their tiles; join to z-adjacent tiles; join to synapse slices
-    # in those tiles which are also xy-adjacent and do not have the same ID
-    query, args = list_into_query('''
+    # in those tiles which are also xy-adjacent (with tolerance) and do not have the same ID
+    cursor.execute('''
         SELECT this_slice.id, that_slice.id FROM synapse_slice this_slice
-          INNER JOIN (VALUES {}) these_ids (id)
+          INNER JOIN unnest(%(slice_ids)s::BIGINT[]) AS these_ids(id)
             ON these_ids.id = this_slice.id
           INNER JOIN synapse_detection_tile this_tile
             ON this_tile.id = this_slice.synapse_detection_tile_id
@@ -145,10 +148,10 @@ def _get_synapse_slice_adjacencies(synapse_slice_ids, cursor=None):
             AND that_tile.synapse_suggestion_workflow_id = ssw.id
           INNER JOIN synapse_slice that_slice
             ON that_slice.synapse_detection_tile_id = that_tile.id
-            AND ST_DWithin(this_slice.geom_2d, that_slice.geom_2d, 1.1)
+            AND ST_DWithin(this_slice.geom_2d, that_slice.geom_2d, %(tolerance)s)
             AND this_slice.id != that_slice.id;
-    ''', synapse_slice_ids, fmt='(%s)')
-    cursor.execute(query, args)
+    ''', {"slice_ids": synapse_slice_ids, "tolerance": tolerance})
+
     results = cursor.fetchall()
     graph.add_edges_from(results)
     return graph
@@ -172,14 +175,13 @@ def _adjacencies_to_slice_clusters(adjacencies, cursor=None):
     if cursor is None:
         cursor = connection.cursor()
 
-    query, cursor_args = list_into_query('''
-            SELECT DISTINCT ss_so2.synapse_slice_id, ss_so2.synapse_object_id FROM synapse_slice_synapse_object ss_so
-              INNER JOIN (VALUES {}) ss_interest (id)
-                ON ss_so.synapse_slice_id = ss_interest.id
-              INNER JOIN synapse_slice_synapse_object ss_so2
-                ON ss_so.synapse_object_id = ss_so2.synapse_object_id;
-        ''', adjacencies.nodes(), '(%s)')
-    cursor.execute(query, cursor_args)
+    cursor.execute('''
+        SELECT DISTINCT ss_so2.synapse_slice_id, ss_so2.synapse_object_id FROM synapse_slice_synapse_object ss_so
+          INNER JOIN unnest(%(slice_ids)s::BIGINT[]) AS ss_interest(id)
+            ON ss_so.synapse_slice_id = ss_interest.id
+          INNER JOIN synapse_slice_synapse_object ss_so2
+            ON ss_so.synapse_object_id = ss_so2.synapse_object_id;
+    ''', {"slice_ids": list(adjacencies.nodes())})
 
     existing_slice_to_obj = dict()
     existing_obj_to_slices = dict()
@@ -247,7 +249,7 @@ def _agglomerate_synapse_slices(slice_clusters, cursor=None):
           VALUES {}
           ON CONFLICT (synapse_slice_id)
             DO UPDATE SET synapse_object_id = EXCLUDED.synapse_object_id;
-    """, new_mappings.items(), fmt='(%s, %s)')
+    """, list(new_mappings.items()), fmt='(%s, %s)')
     cursor.execute(query, cursor_args)
 
     return dict(new_mappings)
@@ -305,11 +307,12 @@ def agglomerate_synapse_slices(request, project_id=None):
         description: array of synapse object IDs deleted due to lack of synapse slices mapping to them.
     """
     synapse_slice_ids = get_request_list(request.POST, 'synapse_slices', tuple(), int)
+    tolerance = request.POST.get('tolerance', DEFAULT_TOLERANCE_PX)
 
     cursor = connection.cursor()
 
     if synapse_slice_ids:
-        adjacencies = _get_synapse_slice_adjacencies(synapse_slice_ids, cursor)
+        adjacencies = _get_synapse_slice_adjacencies(synapse_slice_ids, tolerance, cursor)
         ext_adjacencies = _adjacencies_to_slice_clusters(adjacencies, cursor)
         new_mappings = _agglomerate_synapse_slices(ext_adjacencies, cursor)
     else:

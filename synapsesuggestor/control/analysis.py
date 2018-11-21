@@ -4,14 +4,16 @@ Methods called by the frontend analysis widget
 """
 from __future__ import division
 
+from collections import Counter
+
 from django.db import connection
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
 
 from catmaid.control.common import get_request_list
 
-from synapsesuggestor.control.common import get_most_recent_project_SS_workflow, get_translation_resolution
-from synapsesuggestor.models import ProjectSynapseSuggestionWorkflow
+from synapsesuggestor.control.common import get_most_recent_project_SS_workflow, get_translation_resolution, \
+    get_project_SS_workflow
 
 
 @api_view(['GET'])
@@ -71,14 +73,7 @@ def get_skeleton_synapses(request, project_id=None):
     if skid is None:
         return JsonResponse({'columns': columns, 'data': []})
 
-    ssw_id = request.GET.get('workflow_id')
-
-    if ssw_id is None:
-        pssw = get_most_recent_project_SS_workflow(project_id)
-    else:
-        pssw = ProjectSynapseSuggestionWorkflow.objects.get(
-            synapse_suggestion_workflow_id=ssw_id, project_id=project_id
-        )
+    pssw = get_project_SS_workflow(project_id, request.GET.get('workflow_id'))
 
     cursor = connection.cursor()
 
@@ -374,34 +369,108 @@ def get_synapse_extents(request, project_id=None):
     return JsonResponse(output)
 
 
-@api_view(['POST'])
-def get_partners(request, project_id=None):
-    # todo: document, test
-    syn_ids = get_request_list(request.POST, 'synapse_object_ids', tuple(), int)
+def _skeletons_from_synapse_objects(syn_objs, project_id, cursor=None):
+    """
 
-    response = {
-        'columns': ['synapse_object_id', 'tnids', 'skid', 'contact_px'],
-        'data': []
-    }
-
-    if not syn_ids:
-        return JsonResponse(response)
-
-    cursor = connection.cursor()
+    :param syn_objs: collection of synapse object IDs
+    :param project_id:
+    :param cursor:
+    :return: collection of (syn_obj_id, [tn_ids, ...], skid, sum(contact_area))
+    """
+    cursor = cursor or connection.cursor()
 
     cursor.execute('''
-        SELECT
-            ss_so.synapse_object_id, array_agg(tn.id), tn.skeleton_id, sum(ss_tn.contact_px)
-          FROM synapse_slice_synapse_object ss_so
-          INNER JOIN unnest(%(syns)s::bigint[]) AS syns(id)
-            ON ss_so.synapse_object_id = syns.id
-          INNER JOIN synapse_slice_treenode ss_tn
-            ON ss_tn.synapse_slice_id = ss_so.synapse_slice_id
-          INNER JOIN treenode tn
-            ON tn.id = ss_tn.treenode_id
-          WHERE tn.project_id = %(pid)s
-          GROUP BY ss_so.synapse_object_id, tn.skeleton_id;
-    ''', {'pid': project_id, 'syns': syn_ids})
+            SELECT
+                ss_so.synapse_object_id, array_agg(tn.id), tn.skeleton_id, sum(ss_tn.contact_px)
+              FROM synapse_slice_synapse_object ss_so
+              INNER JOIN unnest(%(syns)s::bigint[]) AS syns(id)
+                ON ss_so.synapse_object_id = syns.id
+              INNER JOIN synapse_slice_treenode ss_tn
+                ON ss_tn.synapse_slice_id = ss_so.synapse_slice_id
+              INNER JOIN treenode tn
+                ON tn.id = ss_tn.treenode_id
+              WHERE tn.project_id = %(pid)s
+              GROUP BY ss_so.synapse_object_id, tn.skeleton_id;
+        ''', {'pid': project_id, 'syns': syn_objs})
 
-    response['data'] = cursor.fetchall()
+    return cursor.fetchall()
+
+
+@api_view(['POST'])
+def get_partners(request, project_id=None):
+    """
+    Given a list of synapse object IDs, return a table-like response with headers
+
+    synapse_object_id, tnids, skid, contact_px
+
+    Where there is one row per skeleton the synapse interacts with,
+    the list of treenodes it interacts with, and the summed contact area (in px)
+
+    """
+    syn_ids = get_request_list(request.POST, 'synapse_object_ids', tuple(), int)
+
+    response = {'columns': ['synapse_object_id', 'tnids', 'skid', 'contact_px']}
+
+    if not syn_ids:
+        response['data'] = []
+        return JsonResponse(response)
+
+    response['data'] = _skeletons_from_synapse_objects(syn_ids, project_id)
+    return JsonResponse(response)
+
+
+def _synapse_objects_from_skeletons(skids, project_id, pssw_id, cursor=None):
+    """
+
+    :param skids: collection of skeleton IDs
+    :param project_id:
+    :param pssw_id:
+    :param threshold: Minimum number of given skeletons
+    :param cursor:
+    :return: collection of [skid, synapse_object_id, [tnids, ...], total_contact_px]
+    """
+    cursor = cursor or connection.cursor()
+    cursor.execute('''
+        SELECT
+            tn.skeleton_id, ss_so.synapse_object_id, array_agg(tn.id), sum(ss_tn.contact_px)
+          FROM treenode tn
+          INNER JOIN unnest(%(skids)s::bigint[]) as sk(id)
+            ON sk.id = tn.skeleton_id
+          INNER JOIN synapse_slice_treenode ss_tn
+            ON tn.id = ss_tn.treenode_id
+          INNER JOIN synapse_slice_synapse_object ss_so
+            ON ss_tn.synapse_slice_id = ss_so.synapse_slice_id
+          WHERE tn.project_id = %(pid)s
+            AND ss_tn.project_synapse_suggestion_workflow_id = %(pssw_id)s
+          GROUP BY tn.skeleton_id, ss_so.synapse_object_id;
+    ''', {"skids": skids, "pid": project_id, "pssw_id": pssw_id})
+    return cursor.fetchall()
+
+
+@api_view(['POST'])
+def get_synapses_between(request, project_id=None):
+    """
+    Takes project_id from URL, list of skeleton_ids, workflow_id
+
+    Returns dict of column names ("columns") and data. Columns are
+        skeleton_id, synapse_object_id, treenode_ids, contact_px
+    Only if synapse object intersects with more than one query skeleton
+
+    :param request:
+    :param project_id:
+    :return:
+    """
+    skel_ids = get_request_list(request.POST, 'skeleton_ids', tuple(), int)
+    pssw = get_project_SS_workflow(project_id, request.POST.get('workflow_id'))
+
+    response = {"columns": ["skeleton_id", "synapse_object_id", "treenode_ids", "contact_px"]}
+
+    if not skel_ids:
+        response['data'] = []
+        return JsonResponse(response)
+
+    all_sk_syn = _synapse_objects_from_skeletons(skel_ids, project_id, pssw.id)
+    syn_counts = Counter(row[1] for row in all_sk_syn)
+
+    response['data'] = [row for row in all_sk_syn if syn_counts[row[1]] > 1]
     return JsonResponse(response)

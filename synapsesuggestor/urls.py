@@ -36,6 +36,7 @@ urlpatterns += [
     url(r'^analysis/(?P<project_id>\d+)/intersecting-connectors$', analysis.get_intersecting_connectors),
     url(r'^analysis/(?P<project_id>\d+)/workflow-info$', workflow.get_workflows_info),
     url(r'^analysis/(?P<project_id>\d+)/partners$', analysis.get_partners),
+    url(r'^analysis/(?P<project_id>\d+)/between$', analysis.get_synapses_between),
     url(r'^analysis/synapse-extents$', analysis.get_synapse_extents),
 ]
 
@@ -43,5 +44,6 @@ urlpatterns += [
 
 urlpatterns += [
     url(r'^training-data/(?P<project_id>\d+)/treenodes/sample$', training_data.sample_treenodes),
-    url(r'^training-data/(?P<project_id>\d+)/treenodes/label$', training_data.treenodes_by_label)
+    url(r'^training-data/(?P<project_id>\d+)/treenodes/label$', training_data.treenodes_by_label),
+    url(r'^training-data/(?P<project_id>\d+)/connectors/convex-hull$', training_data.synapse_convex_hull)
 ]
